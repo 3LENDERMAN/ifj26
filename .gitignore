@@ -3,7 +3,6 @@
 
 # Object files
 *.o
-*.ko
 *.obj
 *.elf
 
@@ -22,7 +21,7 @@
 *.la
 *.lo
 
-# Shared objects (inc. Windows DLLs)
+# Shared objects
 *.dll
 *.so
 *.so.*
@@ -36,20 +35,34 @@
 *.x86_64
 *.hex
 
-# Debug files
+# Debug and profiling files
 *.dSYM/
 *.su
 *.idb
 *.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-# debug information files
 *.dwo
+
+# Project specific executable
+ifj26-compiler
+
+# Valgrind and testing logs
+*.log
+vgcore.*
+ValgrindOut.xml
+
+# Build directories
+build/
+bin/
+obj/
+
+# IDE and Editor configuration
+.vscode/
+.idea/
+cmake-build-*/
+*.swp
+*~
+
+# OS specific temporary files
+.DS_Store
+__MACOSX/
+Thumbs.db
