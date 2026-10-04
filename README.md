@@ -3,10 +3,6 @@
 Tento repozitář obsahuje implementaci překladače imperativního jazyka **IFJ26** (inspirováno jazykem Scala) do cílového **IFJcode26**. 
 Projekt byl vytvořen v rámci předmětů **Formální jazyky a překladače (IFJ)** a **Algoritmy (IAL)**.
 
-## Pravidla
-- Zprávy commitů a veškerý obsah zdrojových souborů, včetně komentářů a názvosloví v angličtině.
-- Plán projektu, zadání úkolů a finální dokumentace v češtině.
-
 ## Zvolená varianta implementace
 - **Tabulka symbolů:** Tabulka s rozptýlenými položkami s implicitním zřetězením položek (TRP s otevřenou adresací)
 
@@ -19,6 +15,21 @@ Projekt byl vytvořen v rámci předmětů **Formální jazyky a překladače (I
 | Oliver Truchlý | `xtrucho00` | `@JustRevilO` |
 
 ## Překlad a spuštění
-Projekt využívá nástroj GNU Make. Překlad se provede příkazem:
-```bash
-make build-check
+Projekt využívá nástroj GNU Make. Podporované cíle:
+- `make build` – Standardní překlad cílové binárky (vyžadováno pro finální odevzdání).
+- `make build-check` – Statická kontrola kódu (cppcheck) následovaná překladem.
+- `make format` – Automatické formátování zdrojových kódů podle pravidel LLVM (`clang-format`).
+- `make valgrind` – Spuštění projektu nástrojem Valgrind pro detekci úniků paměti.
+
+## Pravidla
+- Zprávy commitů a veškerý obsah zdrojových souborů, včetně komentářů a názvosloví v angličtině.
+- Plán projektu, zadání úkolů a finální dokumentace v češtině.
+
+### Struktura commitů
+Zprávy pište v angličtině s využitím následujících prefixů:
+- `feat:` – Nová funkcionalita (např. *feat: add token structure*)
+- `fix:` – Oprava chyby (např. *fix: memory leak in dstring*)
+- `refactor:` – Úprava kódu bez změny chování (např. *refactor: simplify switch in lexer*)
+- `doc:` – Změny v dokumentaci nebo README
+- `build:` – Změny v Makefile, CI/CD nebo konfiguraci
+- `test:` – Přidání nebo úprava testovacích skriptů
