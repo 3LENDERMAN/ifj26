@@ -14,9 +14,9 @@ Projekt byl vytvořen v rámci předmětů **Formální jazyky a překladače (I
 | Jméno a příjmení | VUT login | GitHub |
 | :--- | :--- | :--- |
 | Jakub Holub (Vedoucí) | `xholubj00` | `@3lenderman` |
-| Vít Kutěj | `xkutejv00` | `` |
-| David Pokorák | `xpokord00` | `` |
-| Oliver Truchlý | `xtrucho00` | `` |
+| Vít Kutěj | `xkutejv00` | `@Vigron` |
+| David Pokorák | `xpokord00` | `@Tekaruxd` |
+| Oliver Truchlý | `xtrucho00` | `@JustRevilO` |
 
 ## Překlad a spuštění
 Projekt využívá nástroj GNU Make. Překlad se provede příkazem:
