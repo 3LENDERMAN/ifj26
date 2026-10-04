@@ -12,10 +12,11 @@ TARGET=ifj26-compiler
 
 # Find all .c source files in the current directory
 SOURCES=$(wildcard *.c)
+HEADERS=$(wildcard *.h)
 OBJECTS=$(SOURCES:.c=.o)
 
 # Default target when running 'make' 
-.PHONY: all build build-check clean
+.PHONY: all build build-check format clean valgrind
 
 all: build
 
@@ -29,10 +30,18 @@ $(TARGET): $(OBJECTS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Extension for code formatting
+format:
+	clang-format -i --style=LLVM $(SOURCES) $(HEADERS)
+
 # Target for static code analysis using cppcheck, followed by build
-build-check:
+build-check: format
 	cppcheck --enable=all --suppress=missingIncludeSystem $(SOURCES)
 	$(MAKE) build
+
+# Help extension for quick memory check
+valgrind: build
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TARGET)
 
 # Clean up artifacts and binary files
 clean:
