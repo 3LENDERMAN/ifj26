@@ -25,11 +25,16 @@ Projekt využívá nástroj GNU Make. Podporované cíle:
 - Zprávy commitů a veškerý obsah zdrojových souborů, včetně komentářů a názvosloví v angličtině.
 - Plán projektu, zadání úkolů a finální dokumentace v češtině.
 
+### Struktura repozitáře
+- `src/` – Adresář obsahující veškeré zdrojové a hlavičkové soubory.
+- `tests/` – Adresář s základními a rozšířenými testy.
+
 ### Struktura commitů
-Zprávy pište v angličtině s využitím následujících prefixů:
+Zprávy psané v angličtině s využitím následujících prefixů:
 - `feat:` – Nová funkcionalita (např. *feat: add token structure*)
 - `fix:` – Oprava chyby (např. *fix: memory leak in dstring*)
 - `refactor:` – Úprava kódu bez změny chování (např. *refactor: simplify switch in lexer*)
 - `doc:` – Změny v dokumentaci nebo README
 - `build:` – Změny v Makefile, CI/CD nebo konfiguraci
 - `test:` – Přidání nebo úprava testovacích skriptů
+- `chore:` - Ostatní (např. *chore: change structure of repository*)
