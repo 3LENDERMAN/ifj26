@@ -11,8 +11,8 @@ CFLAGS=-std=c11 -Wall -Wextra -Werror -g
 TARGET=ifj26-compiler
 
 # Find all .c source files in the current directory
-SOURCES=$(wildcard *.c)
-HEADERS=$(wildcard *.h)
+SOURCES=$(wildcard src/*.c)
+HEADERS=$(wildcard src/*.h)
 OBJECTS=$(SOURCES:.c=.o)
 
 # Default target when running 'make' 
