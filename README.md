@@ -21,6 +21,11 @@ Projekt využívá nástroj GNU Make. Podporované cíle:
 - `make format` – Automatické formátování zdrojových kódů podle pravidel LLVM (`clang-format`).
 - `make valgrind` – Spuštění projektu nástrojem Valgrind pro detekci úniků paměti.
 
+### Spuštění překladače
+Překladač čte zdrojový kód ze standardního vstupu (`stdin`) a generuje IFJcode26 na standardní výstup (`stdout`).
+Příklad spuštění s testovacím souborem:
+`./ifj26-compiler < tests/script_test_01`
+
 ## Pravidla
 - Zprávy commitů a veškerý obsah zdrojových souborů, včetně komentářů a názvosloví v angličtině.
 - Plán projektu, zadání úkolů a finální dokumentace v češtině.
