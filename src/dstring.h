@@ -3,18 +3,18 @@
  * Author: Jakub Holub (xholbuj00)
  * Date : 5.10.2026
  *
-**/
+ **/
 
 #ifndef DSTRING_H
 #define DSTRING_H
 
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef struct {
-    char *str;
-    int length;
-    int capacity;
+  char *str;
+  int length;
+  int capacity;
 } dyn_string_t;
 
 bool dstring_init(dyn_string_t *s);
