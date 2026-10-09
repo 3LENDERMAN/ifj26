@@ -9,6 +9,11 @@
 #include <stdlib.h>
 #include <stdnoreturn.h>
 
+#define GB_COLLECT_CAPACITY 5000
+
+static void *gb_collector_arr[GB_COLLECT_CAPACITY];
+static int gb_collector_count = 0;
+
 /**
  * Prints error message and frees allocated memory
  **/
@@ -20,8 +25,23 @@ noreturn void throw_error(Error_code code, const char *msg) {
 }
 
 /**
- * Frees memory of all data structures
+ * Insert new structure to static array to be freed in cleanup_garbage
+**/
+void garbage_register(void *ptr) {
+    if (ptr != NULL && gb_collector_count < GB_COLLECT_CAPACITY) {
+        gb_collector_arr[gb_collector_count] = ptr;
+        gb_collector_count++;
+    }
+}
+
+/**
+ * Goes through static array of all registered structures
+ * Frees memory of all those data structures
  **/
 void cleanup_garbage(void) {
-  // ..
+  for (int idx = 0; idx < gb_collector_count; idx++) {
+    free(gb_collector_arr[idx]);
+  }
+
+  gb_collector_count = 0;
 }
