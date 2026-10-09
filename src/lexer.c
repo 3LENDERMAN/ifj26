@@ -22,11 +22,15 @@ Token *create_token(token_type type, dyn_string_t *str) {
   if (token == NULL) {
     throw_error(INTERNAL_ERROR, "Memory allocation failed.");
   }
+  // Add token structure to garbage collector
+  garbage_register(token);
 
   token->type = type;
 
   if (str != NULL) {
     token->attribute.str_val = str->str;
+    garbage_register(str->str);
+ 
   } else {
     token->attribute.str_val = NULL;
   }
