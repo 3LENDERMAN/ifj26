@@ -50,5 +50,6 @@ typedef enum {
 
 noreturn void throw_error(Error_code code, const char *msg);
 void cleanup_garbage(void);
+void garbage_register(void *ptr);
 
 #endif
