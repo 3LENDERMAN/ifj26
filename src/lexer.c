@@ -110,12 +110,12 @@ Token *get_token(FILE *file) {
     STATE_BLOCK_COMMENT,       // inside /*
     STATE_BLOCK_COMMENT_STAR,  // inside of /* and * loaded
     STATE_BLOCK_COMMENT_SLASH, // inside /* and / loaded
-
+    STATE_EXPECT_EOL
   } lexer_state;
 
   int c;
   lexer_state state = STATE_START;
-
+  bool block_has_newline = false;
   // Number of nested block comments
   int comment_level = 0;
 
@@ -219,6 +219,7 @@ Token *get_token(FILE *file) {
       } else if (c == '*') { // '/*' read -> block comment starts
         state = STATE_BLOCK_COMMENT;
         comment_level = 1;
+        block_has_newline = false;
       } else { // Bsic division operation (next character is not part of current
                // token)
         ungetc(c, file);
@@ -235,7 +236,9 @@ Token *get_token(FILE *file) {
       // Here ignore everything else inside one-line comment
       break;
     case STATE_BLOCK_COMMENT:
-      if (c == '*') {
+      if (c == '\n') {
+        block_has_newline = true;
+      } else if (c == '*') {
         state = STATE_BLOCK_COMMENT_STAR; // * inside /*.. *?
       } else if (c == '/') {
         state = STATE_BLOCK_COMMENT_SLASH; // / inside /*.. /?
@@ -247,7 +250,11 @@ Token *get_token(FILE *file) {
       if (c == '/') { // */ loaded - decrement level count
         comment_level--;
         if (comment_level == 0) {
-          state = STATE_START; // end of block comment
+          if (block_has_newline) {
+            state = STATE_EXPECT_EOL;
+          } else {
+            state = STATE_START;
+          }
         } else {
           state = STATE_BLOCK_COMMENT;
         }
@@ -260,7 +267,9 @@ Token *get_token(FILE *file) {
       }
       break;
     case STATE_BLOCK_COMMENT_SLASH:
-      if (c == '*') { // loaded /* -> increment level count
+      if (c == '\n') {
+        block_has_newline = true;
+      } else if (c == '*') { // loaded /* -> increment level count
         comment_level++;
         state = STATE_BLOCK_COMMENT;
       } else if (c == '/') { // second / (//) inside /* ..//
@@ -269,6 +278,19 @@ Token *get_token(FILE *file) {
         throw_error(LEXER_ERROR, "Block comment missing end sequence (EOF)");
       } else {
         state = STATE_BLOCK_COMMENT;
+      }
+      break;
+    case STATE_EXPECT_EOL:
+      if (c == ' ' || c == '\t' ||
+          c == '\r') { // whitespace chars before \n are allowed
+        continue;
+      } else if (c == '\n') { // end of line
+        return create_token(TOKEN_NEWLINE, NULL);
+      } else if (c == EOF) {
+        ungetc(c, file);
+        return create_token(TOKEN_NEWLINE, NULL);
+      } else { // Another token after block comment is not allowed
+        throw_error(LEXER_ERROR, "Tokens after newline block comment.");
       }
       break;
     }
