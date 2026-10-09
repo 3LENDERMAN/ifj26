@@ -26,12 +26,12 @@ noreturn void throw_error(Error_code code, const char *msg) {
 
 /**
  * Insert new structure to static array to be freed in cleanup_garbage
-**/
+ **/
 void garbage_register(void *ptr) {
-    if (ptr != NULL && gb_collector_count < GB_COLLECT_CAPACITY) {
-        gb_collector_arr[gb_collector_count] = ptr;
-        gb_collector_count++;
-    }
+  if (ptr != NULL && gb_collector_count < GB_COLLECT_CAPACITY) {
+    gb_collector_arr[gb_collector_count] = ptr;
+    gb_collector_count++;
+  }
 }
 
 /**
