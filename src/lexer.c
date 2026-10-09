@@ -41,6 +41,8 @@ Token *create_token(token_type type, dyn_string_t *str) {
 token_type resolve_identifier(dyn_string_t *str) {
   char *clear_str = str->str;
 
+  if (strcmp(clear_str, "_") == 0) // Later allow for EXTENSION
+    throw_error(LEXER_ERROR, "Invalid identifier '_'");
   if (strcmp(clear_str, "if") == 0)
     return TOKEN_KW_IF;
   if (strcmp(clear_str, "else") == 0)
@@ -327,7 +329,7 @@ Token *get_token(FILE *file) {
         if (token_resolved != (TOKEN_IDENTIFIER)) { // is keyword
           dstring_free(&attribute_str);
           return create_token(token_resolved, NULL);
-        } else { // is identifier
+        } else { // is identifier - save the string
           return create_token(TOKEN_IDENTIFIER, &attribute_str);
         }
       }
