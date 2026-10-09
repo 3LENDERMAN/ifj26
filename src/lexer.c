@@ -122,13 +122,17 @@ Token *get_token(FILE *file) {
     STATE_IDENTIFIER,
 
     // Numbers states
+    STATE_DOT_OR_DOUBLE, // . loaded (can be just dot or double)
+
     STATE_NUM_EXP_SIGN, // Sign of exponent part
     STATE_NUM_WHOLE,    // Whole number (or whole part)
     STATE_NUM_DECIMAL,  // Decimal part (behind '.')
-    STATE_NUM_EXP_DIG,  // Digits of exponent
+    STATE_NUM_EXP,      // Digits of exponent
     STATE_NUM_DOT,      // Dot between whole and decimal part
-    STATE_NUM_EXP_E,    // loaded e or E -> follows +, - or digit
+    STATE_NUM_E,        // loaded e or E -> follows +, - or digit
+    STATE_NUM_D,        // for optional suffix D or d
 
+    STATE_NUM_UNDERSCORE
   } lexer_state;
 
   // Init state
@@ -164,12 +168,10 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_BRACE_RIGHT, NULL);
       if (c == '*')
         return create_token(TOKEN_ASTERISK, NULL);
-      if (c == '+') // redo to number
+      if (c == '+')
         return create_token(TOKEN_PLUS, NULL);
-      if (c == '-') // redo to number
+      if (c == '-')
         return create_token(TOKEN_MINUS, NULL);
-      if (c == '.') // redo to number
-        return create_token(TOKEN_DOT, NULL);
       if (c == ',')
         return create_token(TOKEN_COMMA, NULL);
       if (c == EOF)
@@ -212,6 +214,10 @@ Token *get_token(FILE *file) {
       }
 
       // Numbers
+      if (c == '.') {
+        state = STATE_DOT_OR_DOUBLE;
+        continue;
+      }
       if (isdigit(c)) {
         state = STATE_NUM_WHOLE;
         if (!dstring_init(&attribute_str)) {
@@ -361,6 +367,19 @@ Token *get_token(FILE *file) {
         }
       }
       break;
+    case STATE_DOT_OR_DOUBLE:
+      if (isdigit(c)) {
+        state = STATE_NUM_DECIMAL;    // decimal point without zero
+        dstring_init(&attribute_str); // for better parsing, add 0 and . for
+                                      // standard syntax
+        dstring_append_char(&attribute_str, '0');
+        dstring_append_char(&attribute_str, '.');
+        dstring_append_char(&attribute_str, c);
+      } else { // just a dot
+        ungetc(c, file);
+        return create_token(TOKEN_DOT, NULL);
+      }
+      break;
     case STATE_NUM_WHOLE: // whole part of decimal number, or whole number
       if (isdigit(c)) {
         if (left_side_zero) { // numbers such as "0512" or "000" are not allowed
@@ -372,24 +391,81 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_DOT;
       } else if (c == 'e' || c == 'E') {
         dstring_append_char(&attribute_str, c);
-        state = STATE_NUM_EXP_E;
+        state = STATE_NUM_E;
+      } else if (c == 'd' || c == 'D') {
+        state = STATE_NUM_D;
       } else if (c == '_') {
-        // todo
-        continue;
+        state = STATE_NUM_UNDERSCORE;
       } else { // next token
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
       }
       break;
     case STATE_NUM_DOT: // loaded . -> follows only digits
+      if (isdigit(c)) {
+        state = STATE_NUM_WHOLE;
+        dstring_append_char(&attribute_str, c);
+      } else {
+        throw_error(LEXER_ERROR, "Wrong character after decimal point");
+      }
       break;
     case STATE_NUM_DECIMAL: // second char in decimal part after dot
+      if (isdigit(c)) {
+        dstring_append_char(&attribute_str, c);
+      } else if (c == 'e' || c == 'E') {
+        state = STATE_NUM_E;
+        dstring_append_char(&attribute_str, c);
+      } else if (c == 'd' || c == 'D') {
+        state = STATE_NUM_D;
+      } else {
+        ungetc(c, file);
+        return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      }
       break;
-    case STATE_NUM_EXP_E:
+    case STATE_NUM_E:
+      if (c == '+' || c == '-') {
+        state = STATE_NUM_EXP_SIGN;
+        dstring_append_char(&attribute_str, c);
+      } else if (isdigit(c)) {
+        state = STATE_NUM_EXP;
+        dstring_append_char(&attribute_str, c);
+      } else {
+        throw_error(LEXER_ERROR,
+                    "Expecting digit or sign character after exponent");
+      }
       break;
+
     case STATE_NUM_EXP_SIGN:
+      if (isdigit(c)) {
+        state = STATE_NUM_EXP;
+        dstring_append_char(&attribute_str, c);
+      } else {
+        throw_error(LEXER_ERROR, "Expecting digit after sign of exponent");
+      }
       break;
-    case STATE_NUM_EXP_DIG:
+
+    case STATE_NUM_EXP:
+      if (isdigit(c)) {
+        dstring_append_char(&attribute_str, c);
+      } else if (c == 'd' || c == 'D') {
+        state = STATE_NUM_D;
+      } else {
+        ungetc(c, file);
+        return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      }
+      break;
+
+    case STATE_NUM_D:
+      // Suffix - always end of number
+      ungetc(c, file);
+      return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      break;
+
+    case STATE_NUM_UNDERSCORE:
+      if (!isdigit(c)) {
+        throw_error(LEXER_ERROR,
+                    "Wrong number syntax - two underscores in sequence");
+      }
       break;
     }
   }
