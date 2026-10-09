@@ -161,8 +161,15 @@ Token *get_token(FILE *file) {
       // Check for one character tokens
       if (c == '\n')
         return create_token(TOKEN_NEWLINE, NULL);
-      if (c == '(')
-        return create_token(TOKEN_LEFT_PAREN, NULL);
+      if (c == '(') {
+        int next_c = fgetc(file);
+        if (next_c == ')') {
+          return create_token(TOKEN_UNIT, NULL); // ()
+        } else {                                 // just ( -> go back
+          ungetc(next_c, file);
+          return create_token(TOKEN_LEFT_PAREN, NULL);
+        }
+      }
       if (c == ')')
         return create_token(TOKEN_RIGHT_PAREN, NULL);
       if (c == '{')
