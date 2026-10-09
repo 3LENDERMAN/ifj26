@@ -136,6 +136,17 @@ Token *get_token(FILE *file) {
     STATE_NUM_WHOLE_USC, // inside whole part
     STATE_NUM_DEC_USC,   // inside decimal part
     STATE_NUM_EXP_USC,   // exponent
+
+    // String literals
+    STATE_STR_START,     // " Loaded
+    STATE_STR_TWO_QTS,   // "" loaded
+    STATE_STR,           // Normal oneline string
+    STATE_STR_ESCAPE,    // Found / in standard string
+    STATE_STR_MULTI,     // Multiline string
+    STATE_STR_MULTI_Q1,  // Found first " on exit
+    STATE_STR_MULTI_Q2   // Found second "" on exit
+
+
   } lexer_state;
 
   // Init state
