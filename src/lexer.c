@@ -99,16 +99,29 @@ Token *get_token(FILE *file) {
   // Define all states in FSM
   typedef enum {
     STATE_START,
-    STATE_LESS,
-    STATE_GREATER,
-    STATE_ASSIGN,
-    STATE_NOT,
+    STATE_LESS, // <
+    STATE_GREATER, // >
+    STATE_ASSIGN, // =
+    STATE_NOT, // !
+
+    // States for comments, division
+    STATE_SLASH, // /
+    STATE_LINE_COMMENT, //  inside //
+    STATE_BLOCK_COMMENT, // inside /*
+    STATE_BLOCK_COMMENT_STAR,  // inside of /* and * loaded
+    STATE_BLOCK_COMMENT_SLASH, // inside /* and / loaded
+
 
   } lexer_state;
 
   int c;
   lexer_state state = STATE_START;
 
+  // Number of nested block comments
+  int comment_level = 0;
+
+
+  // Main FSM loop cycle
   while (1) {
     c = fgetc(file);
     switch (state) {
@@ -134,8 +147,13 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_PLUS, NULL);
       if (c == '-')
         return create_token(TOKEN_MINUS, NULL);
+      if (c == '.') 
+        return create_token(TOKEN_DOT, NULL);
+      if (c == ',') 
+        return create_token(TOKEN_COMMA, NULL);
       if (c == EOF)
         return create_token(TOKEN_EOF, NULL);
+
 
       // Multicharacter tokens
       if (c == '<') {
@@ -152,6 +170,12 @@ Token *get_token(FILE *file) {
       }
       if (c == '!') {
         state = STATE_NOT;
+        continue;
+      }
+
+      // Comments
+      if (c == '/') {
+        state = STATE_SLASH;
         continue;
       }
 
@@ -190,6 +214,69 @@ Token *get_token(FILE *file) {
             "Expected '=' after '!'"); // REVISIT LATER FOR BOOLTHEN EXTENSION
       }
       break;
+
+    case STATE_SLASH:
+        if (c == '/') { // Second '/' read -> one-line comment
+            state = STATE_LINE_COMMENT;
+            comment_level = 1;
+        } else if (c == '*') { // '/*' read -> block comment starts
+            state = STATE_BLOCK_COMMENT;
+            comment_level = 1;
+        } else { // Bsic division operation (next character is not part of current token)
+            ungetc(c, file);
+            return create_token(TOKEN_DIV, NULL);
+        }
+        break;
+
+    case STATE_LINE_COMMENT:
+        if (c == '\n') {
+            return create_token(TOKEN_NEWLINE, NULL);
+        } else if (c == EOF) {
+            return create_token(TOKEN_EOF, NULL);
+        }
+        // Here ignore everything else inside one-line comment
+        break;
+    case STATE_BLOCK_COMMENT:
+        if (c == '*') {
+            state = STATE_BLOCK_COMMENT_STAR; // * inside /*.. *?
+        }
+        else if (c == '/') {
+            state = STATE_BLOCK_COMMENT_SLASH; // / inside /*.. /?
+        }
+        else if (c == EOF) {
+            throw_error(LEXER_ERROR, "Block comment missing end sequence (EOF)");
+        }
+        break;
+    case STATE_BLOCK_COMMENT_STAR:
+        if (c == '/') { // */ loaded - decrement level count
+            comment_level--;
+            if (comment_level == 0) {
+                state = STATE_START; // end of block comment
+            } else {
+                state = STATE_BLOCK_COMMENT;
+            }
+        }
+        else if (c == EOF) {
+            throw_error(LEXER_ERROR, "Block comment missing end sequence (EOF)");
+        }
+        else if (c == '*') {
+            state = STATE_BLOCK_COMMENT_STAR;
+        } else {
+            state = STATE_BLOCK_COMMENT;
+        }
+        break;
+    case STATE_BLOCK_COMMENT_SLASH:
+        if (c == '*') { // loaded /* -> increment level count
+            comment_level++;
+            state = STATE_BLOCK_COMMENT;
+        } else if (c == '/') { // second / (//) inside /* ..//
+            state = STATE_BLOCK_COMMENT_SLASH;
+        } else if (c == EOF) {
+            throw_error(LEXER_ERROR, "Block comment missing end sequence (EOF)");
+        } else {
+            state = STATE_BLOCK_COMMENT;
+        }
+        break;
     }
   }
 }

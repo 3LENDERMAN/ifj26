@@ -30,6 +30,7 @@ typedef enum {
   TOKEN_ASSIGN,      // =
   TOKEN_COMMA,       // ,
   TOKEN_NEWLINE,     // \n
+  TOKEN_SPACE,       // ' '
 
   // Keywords:
   TOKEN_KW_IF,
