@@ -30,7 +30,7 @@ Token *create_token(token_type type, dyn_string_t *str) {
   if (str != NULL) {
     token->attribute.str_val = str->str;
     garbage_register(str->str);
- 
+
   } else {
     token->attribute.str_val = NULL;
   }
@@ -119,13 +119,23 @@ Token *get_token(FILE *file) {
     STATE_EXPECT_EOL,
 
     // Identifiers
-    STATE_IDENTIFIER
+    STATE_IDENTIFIER,
+
+    // Numbers states
+    STATE_NUM_EXP_SIGN, // Sign of exponent part
+    STATE_NUM_WHOLE,    // Whole number (or whole part)
+    STATE_NUM_DECIMAL,  // Decimal part (behind '.')
+    STATE_NUM_EXP_DIG,  // Digits of exponent
+    STATE_NUM_DOT,      // Dot between whole and decimal part
+    STATE_NUM_EXP_E,    // loaded e or E -> follows +, - or digit
+
   } lexer_state;
 
   // Init state
   lexer_state state = STATE_START;
 
   bool block_has_newline = false;
+  bool left_side_zero = false;
   // Number of nested block comments
   int comment_level = 0;
 
@@ -154,11 +164,11 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_BRACE_RIGHT, NULL);
       if (c == '*')
         return create_token(TOKEN_ASTERISK, NULL);
-      if (c == '+')
+      if (c == '+') // redo to number
         return create_token(TOKEN_PLUS, NULL);
-      if (c == '-')
+      if (c == '-') // redo to number
         return create_token(TOKEN_MINUS, NULL);
-      if (c == '.')
+      if (c == '.') // redo to number
         return create_token(TOKEN_DOT, NULL);
       if (c == ',')
         return create_token(TOKEN_COMMA, NULL);
@@ -198,6 +208,20 @@ Token *get_token(FILE *file) {
         }
         // Start storing text into dynamic string
         dstring_append_char(&attribute_str, c);
+        continue;
+      }
+
+      // Numbers
+      if (isdigit(c)) {
+        state = STATE_NUM_WHOLE;
+        if (!dstring_init(&attribute_str)) {
+          throw_error(INTERNAL_ERROR,
+                      "Failed to allocate memory for dynamic string");
+        }
+        dstring_append_char(&attribute_str, c);
+        if (c == '0') {
+          left_side_zero = true;
+        }
         continue;
       }
 
@@ -336,6 +360,36 @@ Token *get_token(FILE *file) {
           return create_token(TOKEN_IDENTIFIER, &attribute_str);
         }
       }
+      break;
+    case STATE_NUM_WHOLE: // whole part of decimal number, or whole number
+      if (isdigit(c)) {
+        if (left_side_zero) { // numbers such as "0512" or "000" are not allowed
+          throw_error(LEXER_ERROR, "Whole number starting with zero");
+        }
+        dstring_append_char(&attribute_str, c);
+      } else if (c == '.') {
+        dstring_append_char(&attribute_str, c);
+        state = STATE_NUM_DOT;
+      } else if (c == 'e' || c == 'E') {
+        dstring_append_char(&attribute_str, c);
+        state = STATE_NUM_EXP_E;
+      } else if (c == '_') {
+        // todo
+        continue;
+      } else { // next token
+        ungetc(c, file);
+        return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      }
+      break;
+    case STATE_NUM_DOT: // loaded . -> follows only digits
+      break;
+    case STATE_NUM_DECIMAL: // second char in decimal part after dot
+      break;
+    case STATE_NUM_EXP_E:
+      break;
+    case STATE_NUM_EXP_SIGN:
+      break;
+    case STATE_NUM_EXP_DIG:
       break;
     }
   }

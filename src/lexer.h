@@ -61,6 +61,7 @@ typedef enum {
   // Identifier is made of Alphabet letters, numbers, _ (has to be more than 1)
   TOKEN_IDENTIFIER,
 
+  TOKEN_NUM_LITERAL,
   TOKEN_INT_LITERAL,    // Integer
   TOKEN_DOUBLE_LITERAL, // Double
 
