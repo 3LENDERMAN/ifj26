@@ -1,0 +1,9 @@
+// ignore this row
+def my_func(a) {
+    if (a <= 5) {
+        /* nested comment 123
+           /* new line nested comment */
+        */
+        var b = a + 10
+    }
+}
