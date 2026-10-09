@@ -7,6 +7,7 @@
 #include "lexer.h"
 #include "dstring.h"
 #include "error.h"
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,4 +90,106 @@ token_type resolve_identifier(dyn_string_t *str) {
 
   // No match - clasify as name, identifier
   return TOKEN_IDENTIFIER;
+}
+
+/**
+ *
+ **/
+Token *get_token(FILE *file) {
+  // Define all states in FSM
+  typedef enum {
+    STATE_START,
+    STATE_LESS,
+    STATE_GREATER,
+    STATE_ASSIGN,
+    STATE_NOT,
+
+  } lexer_state;
+
+  int c;
+  lexer_state state = STATE_START;
+
+  while (1) {
+    c = fgetc(file);
+    switch (state) {
+    case STATE_START:
+      if (c == ' ' || c == '\t' || c == '\r') {
+        continue; // Stay in START, ignore whitespaces
+      }
+
+      // Check for one character tokens
+      if (c == '\n')
+        return create_token(TOKEN_NEWLINE, NULL);
+      if (c == '(')
+        return create_token(TOKEN_LEFT_PAREN, NULL);
+      if (c == ')')
+        return create_token(TOKEN_RIGHT_PAREN, NULL);
+      if (c == '{')
+        return create_token(TOKEN_BRACE_LEFT, NULL);
+      if (c == '}')
+        return create_token(TOKEN_BRACE_RIGHT, NULL);
+      if (c == '*')
+        return create_token(TOKEN_ASTERISK, NULL);
+      if (c == '+')
+        return create_token(TOKEN_PLUS, NULL);
+      if (c == '-')
+        return create_token(TOKEN_MINUS, NULL);
+      if (c == EOF)
+        return create_token(TOKEN_EOF, NULL);
+
+      // Multicharacter tokens
+      if (c == '<') {
+        state = STATE_LESS;
+        continue;
+      }
+      if (c == '>') {
+        state = STATE_GREATER;
+        continue;
+      }
+      if (c == '=') {
+        state = STATE_ASSIGN;
+        continue;
+      }
+      if (c == '!') {
+        state = STATE_NOT;
+        continue;
+      }
+
+      throw_error(LEXER_ERROR, "Invalid character on input.");
+      break;
+    case STATE_LESS:
+      if (c == '=') { // <=
+        return create_token(TOKEN_LESS_EQ, NULL);
+      } else { // <
+        ungetc(c, file);
+        return create_token(TOKEN_LESS, NULL);
+      }
+      break;
+    case STATE_GREATER:
+      if (c == '=') { // >=
+        return create_token(TOKEN_GREATER_EQ, NULL);
+      } else { // >
+        ungetc(c, file);
+        return create_token(TOKEN_GREATER, NULL);
+      }
+      break;
+    case STATE_ASSIGN:
+      if (c == '=') { // ==
+        return create_token(TOKEN_EQ, NULL);
+      } else { // =
+        ungetc(c, file);
+        return create_token(TOKEN_ASSIGN, NULL);
+      }
+      break;
+    case STATE_NOT:
+      if (c == '=') { // !=
+        return create_token(TOKEN_NOT_EQ, NULL);
+      } else { // ! (unary negation)
+        throw_error(
+            LEXER_ERROR,
+            "Expected '=' after '!'"); // REVISIT LATER FOR BOOLTHEN EXTENSION
+      }
+      break;
+    }
+  }
 }
