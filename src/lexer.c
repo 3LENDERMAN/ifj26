@@ -110,14 +110,22 @@ Token *get_token(FILE *file) {
     STATE_BLOCK_COMMENT,       // inside /*
     STATE_BLOCK_COMMENT_STAR,  // inside of /* and * loaded
     STATE_BLOCK_COMMENT_SLASH, // inside /* and / loaded
-    STATE_EXPECT_EOL
+    STATE_EXPECT_EOL,
+
+    // Identifiers
+    STATE_IDENTIFIER
   } lexer_state;
 
   int c;
+
+  // Init state
   lexer_state state = STATE_START;
   bool block_has_newline = false;
   // Number of nested block comments
   int comment_level = 0;
+
+  // Dynamic string for storing and checking identifiers and literals
+  dyn_string_t attribute_str;
 
   // Main FSM loop cycle
   while (1) {
@@ -173,6 +181,18 @@ Token *get_token(FILE *file) {
       // Comments
       if (c == '/') {
         state = STATE_SLASH;
+        continue;
+      }
+
+      // Identifiers and keywords
+      if (isalpha(c) || c == '_') {
+        state = STATE_IDENTIFIER;
+        if (!dstring_init(&attribute_str)) {
+          throw_error(INTERNAL_ERROR,
+                      "Failed to allocate memory for dynamic string");
+        }
+        // Start storing text into dynamic string
+        dstring_append_char(&attribute_str, c);
         continue;
       }
 
@@ -291,6 +311,25 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_NEWLINE, NULL);
       } else { // Another token after block comment is not allowed
         throw_error(LEXER_ERROR, "Tokens after newline block comment.");
+      }
+      break;
+
+    case STATE_IDENTIFIER:
+      // Check if all character are valid (alpha-numerical + _)
+      if (isalnum(c) || c == '_') {
+        dstring_append_char(&attribute_str, c);
+      } else {
+        ungetc(c, file);
+
+        // Here the identifier is complete - resolve it into token
+        token_type token_resolved = resolve_identifier(&attribute_str);
+
+        if (token_resolved != (TOKEN_IDENTIFIER)) { // is keyword
+          dstring_free(&attribute_str);
+          return create_token(token_resolved, NULL);
+        } else { // is identifier
+          return create_token(TOKEN_IDENTIFIER, &attribute_str);
+        }
       }
       break;
     }
