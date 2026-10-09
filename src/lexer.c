@@ -132,7 +132,10 @@ Token *get_token(FILE *file) {
     STATE_NUM_E,        // loaded e or E -> follows +, - or digit
     STATE_NUM_D,        // for optional suffix D or d
 
-    STATE_NUM_UNDERSCORE
+    // Checking underscores inside number literals
+    STATE_NUM_WHOLE_USC, // inside whole part
+    STATE_NUM_DEC_USC,   // inside decimal part
+    STATE_NUM_EXP_USC,   // exponent
   } lexer_state;
 
   // Init state
@@ -395,7 +398,12 @@ Token *get_token(FILE *file) {
       } else if (c == 'd' || c == 'D') {
         state = STATE_NUM_D;
       } else if (c == '_') {
-        state = STATE_NUM_UNDERSCORE;
+        if (left_side_zero) {
+          throw_error(
+              LEXER_ERROR,
+              "Number starting with zero cannot be followed by underscore");
+        }
+        state = STATE_NUM_WHOLE_USC;
       } else { // next token
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -403,7 +411,7 @@ Token *get_token(FILE *file) {
       break;
     case STATE_NUM_DOT: // loaded . -> follows only digits
       if (isdigit(c)) {
-        state = STATE_NUM_WHOLE;
+        state = STATE_NUM_DECIMAL;
         dstring_append_char(&attribute_str, c);
       } else {
         throw_error(LEXER_ERROR, "Wrong character after decimal point");
@@ -417,6 +425,8 @@ Token *get_token(FILE *file) {
         dstring_append_char(&attribute_str, c);
       } else if (c == 'd' || c == 'D') {
         state = STATE_NUM_D;
+      } else if (c == '_') {
+        state = STATE_NUM_DEC_USC;
       } else {
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -449,6 +459,8 @@ Token *get_token(FILE *file) {
         dstring_append_char(&attribute_str, c);
       } else if (c == 'd' || c == 'D') {
         state = STATE_NUM_D;
+      } else if (c == '_') {
+        state = STATE_NUM_EXP_USC;
       } else {
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -461,10 +473,31 @@ Token *get_token(FILE *file) {
       return create_token(TOKEN_NUM_LITERAL, &attribute_str);
       break;
 
-    case STATE_NUM_UNDERSCORE:
-      if (!isdigit(c)) {
+    case STATE_NUM_WHOLE_USC:
+      if (isdigit(c)) {
+        state = STATE_NUM_WHOLE; // continuing in whole part
+        dstring_append_char(&attribute_str, c);
+      } else {
         throw_error(LEXER_ERROR,
-                    "Wrong number syntax - two underscores in sequence");
+                    "Wrong syntax - underscores must be between digits");
+      }
+      break;
+    case STATE_NUM_DEC_USC:
+      if (isdigit(c)) {
+        state = STATE_NUM_DECIMAL;
+        dstring_append_char(&attribute_str, c);
+      } else {
+        throw_error(LEXER_ERROR,
+                    "Wrong syntax - underscores must be between digits");
+      }
+      break;
+    case STATE_NUM_EXP_USC:
+      if (isdigit(c)) {
+        state = STATE_NUM_EXP;
+        dstring_append_char(&attribute_str, c);
+      } else {
+        throw_error(LEXER_ERROR,
+                    "Wrong syntax - underscores must be between digits");
       }
       break;
     }
