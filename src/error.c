@@ -7,11 +7,12 @@
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 
 /**
  * Prints error message and frees allocated memory
  **/
-void throw_error(Error_code code, const char *msg) {
+noreturn void throw_error(Error_code code, const char *msg) {
   fprintf(stderr, "Error %d: %s\n", code, msg);
 
   cleanup_garbage();

@@ -38,8 +38,8 @@ Token *create_token(token_type type, dyn_string_t *str) {
  * Resolves whether the given string is a keyword or a general identifier
  * Returns the corresponding token_type
  **/
-token_type resolve_identifier(dyn_string_t *str) {
-  char *clear_str = str->str;
+token_type resolve_identifier(const dyn_string_t *str) {
+  const char *clear_str = str->str;
 
   if (strcmp(clear_str, "_") == 0) // Later allow for EXTENSION
     throw_error(LEXER_ERROR, "Invalid identifier '_'");
@@ -118,10 +118,9 @@ Token *get_token(FILE *file) {
     STATE_IDENTIFIER
   } lexer_state;
 
-  int c;
-
   // Init state
   lexer_state state = STATE_START;
+
   bool block_has_newline = false;
   // Number of nested block comments
   int comment_level = 0;
@@ -131,7 +130,7 @@ Token *get_token(FILE *file) {
 
   // Main FSM loop cycle
   while (1) {
-    c = fgetc(file);
+    int c = fgetc(file);
     switch (state) {
     case STATE_START:
       if (c == ' ' || c == '\t' || c == '\r') {

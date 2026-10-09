@@ -7,6 +7,8 @@
 #ifndef ERROR_H
 #define ERROR_H
 
+#include <stdnoreturn.h>
+
 /**
  * Definition of all error codes
  **/
@@ -46,7 +48,7 @@ typedef enum {
   INTERNAL_ERROR = 99
 } Error_code;
 
-void throw_error(Error_code code, const char *msg);
+noreturn void throw_error(Error_code code, const char *msg);
 void cleanup_garbage(void);
 
 #endif

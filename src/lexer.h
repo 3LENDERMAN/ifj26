@@ -83,4 +83,8 @@ typedef struct {
   } attribute;
 } Token;
 
+token_type resolve_identifier(const dyn_string_t *str);
+Token *create_token(token_type type, dyn_string_t *str);
+Token *get_token(FILE *file);
+
 #endif
