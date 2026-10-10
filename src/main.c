@@ -50,12 +50,6 @@ void print_token(Token *t) {
   case TOKEN_RIGHT_PAREN:
     printf("RIGHT_PAREN (')')\n");
     break;
-  case TOKEN_BRACE_LEFT:
-    printf("BRACE_LEFT ('{')\n");
-    break;
-  case TOKEN_BRACE_RIGHT:
-    printf("BRACE_RIGHT ('}')\n");
-    break;
   case TOKEN_NEWLINE:
     printf("NEWLINE (\\n)\n");
     break;
