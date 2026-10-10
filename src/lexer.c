@@ -19,7 +19,9 @@ static bool is_line_start = true; // is start of logival row
 static int space_count = 0;
 
 // Stack for storing indentations
-// todo
+static int indent_stack[50] = {0}; // max 50 levels of indentation
+static int indent_top = 0;
+static int pending_indents = 0;
 
 /**
  * Create and initialize token
@@ -111,7 +113,10 @@ token_type resolve_identifier(const dyn_string_t *str) {
  **/
 Token *get_token(FILE *file) {
   // Check if all tokens for current indentation were sent
-  // todo..
+  if (pending_indents > 0) {
+    pending_indents--;
+    return create_token(TOKEN_INDENT_END, NULL);
+  }
 
   // Define all states in FSM
   typedef enum {
@@ -200,8 +205,31 @@ Token *get_token(FILE *file) {
           ungetc(next_c, file);
         }
 
-        // c != EOF -> start of line found
-        // todo..
+        // start of line found
+        if (c != EOF) {
+          is_line_start = false;
+
+          // Compare with top of stack
+          if (space_count > indent_stack[indent_top]) {
+            indent_top++;
+            indent_stack[indent_top] = space_count;
+            ungetc(c, file);
+            return create_token(TOKEN_INDENT_START, NULL);
+          } else if (space_count < indent_stack[indent_top]) {
+            while ((indent_top > 0) && (space_count < indent_stack[indent_top])) {
+              indent_top--;
+              pending_indents++; // Number of times to close the block
+            }
+
+            if (space_count != indent_stack[indent_top]) {
+              throw_error(LEXER_ERROR, "Indentation error");
+            }
+            ungetc(c, file);
+            pending_indents--;
+            return create_token(TOKEN_INDENT_END, NULL);
+          }
+          // indentation hasnt changed
+        }
       } else { // ignore whitespaces inside line
         if (c == ' ' || c == '\t' || c == '\r') {
           continue;
