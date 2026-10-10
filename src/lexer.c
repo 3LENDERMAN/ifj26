@@ -13,6 +13,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+// initialize variables for indentation check
+static int paren_level = 0;       // current level inside ()
+static bool is_line_start = true; // is start of logival row
+static int space_count = 0;
+
+// Stack for storing indentations
+// todo
+
 /**
  * Create and initialize token
  **/
@@ -102,6 +110,9 @@ token_type resolve_identifier(const dyn_string_t *str) {
  *
  **/
 Token *get_token(FILE *file) {
+  // Check if all tokens for current indentation were sent
+  // todo..
+
   // Define all states in FSM
   typedef enum {
     STATE_START,
@@ -164,24 +175,64 @@ Token *get_token(FILE *file) {
     int c = fgetc(file);
     switch (state) {
     case STATE_START:
-      if (c == ' ' || c == '\t' || c == '\r') {
-        continue; // Stay in START, ignore whitespaces
+      // Process start of line and indentation
+      if (is_line_start) {
+        if (c == ' ') {
+          space_count++;
+          continue;
+        }
+        if (c == '\t') {
+          throw_error(LEXER_ERROR, "Tab key on the start of the line");
+        } else if (c == '\r') {
+          continue;
+        } else if (c == '\n') {
+          space_count = 0; // empty line, ignore
+          continue;
+        } else if (c == '/') {
+          int next_c = fgetc(file);
+          if (next_c == '/') { // one line comment -> ignore
+            while (next_c != '\n' && next_c != EOF) {
+              next_c = fgetc(file);
+            }
+            space_count = 0;
+            continue;
+          }
+          ungetc(next_c, file);
+        }
+
+        // c != EOF -> start of line found
+        // todo..
+      } else { // ignore whitespaces inside line
+        if (c == ' ' || c == '\t' || c == '\r') {
+          continue;
+        }
+      }
+      // Check for one character tokens
+      if (c == '\n') {
+        if (paren_level > 0) {
+          continue;
+        }
+        is_line_start = true;
+        space_count = 0; // prepare for next line
+        return create_token(TOKEN_NEWLINE, NULL);
       }
 
-      // Check for one character tokens
-      if (c == '\n')
-        return create_token(TOKEN_NEWLINE, NULL);
       if (c == '(') {
         int next_c = fgetc(file);
         if (next_c == ')') {
           return create_token(TOKEN_UNIT_LITERAL, NULL); // ()
         } else {                                         // just ( -> go back
           ungetc(next_c, file);
+          paren_level++;
           return create_token(TOKEN_LEFT_PAREN, NULL);
         }
       }
-      if (c == ')')
+      if (c == ')') {
+        if (paren_level > 0) {
+          paren_level--;
+        }
         return create_token(TOKEN_RIGHT_PAREN, NULL);
+      }
       if (c == '@')
         return create_token(TOKEN_AT, NULL);
       if (c == ':')

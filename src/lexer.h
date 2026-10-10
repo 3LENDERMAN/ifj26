@@ -71,6 +71,12 @@ typedef enum {
 
   TOKEN_UNIT_LITERAL, // ()
 
+  // Indentations
+  // indentation has more spaces then previous row
+  TOKEN_INDENT_START,
+  // indentation has less spaces then previous row
+  TOKEN_INDENT_END,
+
   TOKEN_EOF, // EOF
 } token_type;
 
