@@ -218,7 +218,8 @@ Token *get_token(FILE *file) {
             ungetc(c, file);
             return create_token(TOKEN_INDENT_START, NULL);
           } else if (space_count < indent_stack[indent_top]) {
-            while ((indent_top > 0) && (space_count < indent_stack[indent_top])) {
+            while ((indent_top > 0) &&
+                   (space_count < indent_stack[indent_top])) {
               indent_top--;
               pending_indents++; // Number of times to close the block
             }
@@ -277,7 +278,7 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_MINUS, NULL);
       if (c == ',')
         return create_token(TOKEN_COMMA, NULL);
-      
+
       if (c == EOF) {
         // when eof, check if all blocks are closed, if not, close all
         if (indent_top > 0) {
@@ -409,8 +410,8 @@ Token *get_token(FILE *file) {
         space_count = 0;
         return create_token(TOKEN_NEWLINE, NULL);
       } else if (c == EOF) {
-        ungetc(c, file); 
-        state = STATE_START; 
+        ungetc(c, file);
+        state = STATE_START;
         continue;
       }
       // Here ignore everything else inside one-line comment
@@ -472,7 +473,7 @@ Token *get_token(FILE *file) {
         ungetc(c, file);
         state = STATE_START;
         continue;
-        
+
       } else { // Another token after block comment is not allowed
         throw_error(LEXER_ERROR, "Tokens after newline block comment.");
       }
