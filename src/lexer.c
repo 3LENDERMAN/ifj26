@@ -52,11 +52,13 @@ Token *create_token(token_type type, dyn_string_t *str) {
  * Resolves whether the given string is a keyword or a general identifier
  * Returns the corresponding token_type
  **/
-token_type resolve_identifier(const dyn_string_t *str) {
+token_type resolve_identifier(dyn_string_t *str) {
   const char *clear_str = str->str;
 
-  if (strcmp(clear_str, "_") == 0) // Later allow for EXTENSION
+  if (strcmp(clear_str, "_") == 0) { // Later allow for EXTENSION
+    dstring_free(str);
     throw_error(LEXER_ERROR, "Invalid identifier '_'");
+  }
   if (strcmp(clear_str, "if") == 0)
     return TOKEN_KW_IF;
   if (strcmp(clear_str, "else") == 0)
@@ -510,6 +512,7 @@ Token *get_token(FILE *file) {
     case STATE_NUM_WHOLE: // whole part of decimal number, or whole number
       if (isdigit(c)) {
         if (left_side_zero) { // numbers such as "0512" or "000" are not allowed
+          dstring_free(&attribute_str);
           throw_error(LEXER_ERROR, "Whole number starting with zero");
         }
         dstring_append_char(&attribute_str, c);
@@ -523,6 +526,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_D;
       } else if (c == '_') {
         if (left_side_zero) {
+          dstring_free(&attribute_str);
           throw_error(
               LEXER_ERROR,
               "Number starting with zero cannot be followed by underscore");
@@ -538,6 +542,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_DECIMAL;
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "Wrong character after decimal point");
       }
       break;
@@ -564,6 +569,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_EXP;
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR,
                     "Expecting digit or sign character after exponent");
       }
@@ -574,6 +580,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_EXP;
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "Expecting digit after sign of exponent");
       }
       break;
@@ -602,6 +609,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_WHOLE; // continuing in whole part
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR,
                     "Wrong syntax - underscores must be between digits");
       }
@@ -611,6 +619,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_DECIMAL;
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR,
                     "Wrong syntax - underscores must be between digits");
       }
@@ -620,6 +629,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_EXP;
         dstring_append_char(&attribute_str, c);
       } else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR,
                     "Wrong syntax - underscores must be between digits");
       }
@@ -668,6 +678,7 @@ Token *get_token(FILE *file) {
       else if (c == '\\')
         dstring_append_char(&attribute_str, '\\');
       else {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "Invalid escape sequence");
       }
       state = STATE_STR; // back to reading
@@ -678,6 +689,7 @@ Token *get_token(FILE *file) {
       if (c == '"') {
         state = STATE_STR_MULTI_Q1;
       } else if (c == EOF) {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
       } else {
         dstring_append_char(&attribute_str, c);
@@ -687,6 +699,7 @@ Token *get_token(FILE *file) {
       if (c == '"') {
         state = STATE_STR_MULTI_Q2; // part of end sequence ""
       } else if (c == EOF) {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
       } else {
         dstring_append_char(&attribute_str, '"'); // keep the " character
@@ -699,6 +712,8 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_STR_LITERAL,
                             &attribute_str); // """ loaded -> string ends
       } else if (c == EOF) {
+
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
       } else {
         dstring_append_char(&attribute_str, '"');
