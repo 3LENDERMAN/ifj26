@@ -275,8 +275,16 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_MINUS, NULL);
       if (c == ',')
         return create_token(TOKEN_COMMA, NULL);
-      if (c == EOF)
+      
+      if (c == EOF) {
+        // when eof, check if all blocks are closed, if not, close all
+        if (indent_top > 0) {
+          indent_top--;
+          pending_indents = indent_top; // send all remaining indents
+          return create_token(TOKEN_INDENT_END, NULL);
+        }
         return create_token(TOKEN_EOF, NULL);
+      }
 
       // Multicharacter tokens
       if (c == '<') {
