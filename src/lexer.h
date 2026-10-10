@@ -14,8 +14,6 @@ typedef enum {
   // Expressions:
   TOKEN_LEFT_PAREN,  // (
   TOKEN_RIGHT_PAREN, // )
-  TOKEN_BRACE_LEFT,  // {
-  TOKEN_BRACE_RIGHT, // }
   TOKEN_LESS,        // <
   TOKEN_GREATER,     // >
   TOKEN_LESS_EQ,     // <=
@@ -30,7 +28,9 @@ typedef enum {
   TOKEN_ASSIGN,      // =
   TOKEN_COMMA,       // ,
   TOKEN_NEWLINE,     // \n
-  TOKEN_SPACE,       // ' '
+  TOKEN_AT,          // @
+  TOKEN_COLON,       // :
+  TOKEN_SEMICOLON,   // ;
 
   // Keywords:
   TOKEN_KW_IF,

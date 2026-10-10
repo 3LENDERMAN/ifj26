@@ -175,7 +175,7 @@ Token *get_token(FILE *file) {
       if (c == '(') {
         int next_c = fgetc(file);
         if (next_c == ')') {
-          return create_token(TOKEN_UNIT, NULL); // ()
+          return create_token(TOKEN_UNIT_LITERAL, NULL); // ()
         } else {                                 // just ( -> go back
           ungetc(next_c, file);
           return create_token(TOKEN_LEFT_PAREN, NULL);
@@ -183,10 +183,12 @@ Token *get_token(FILE *file) {
       }
       if (c == ')')
         return create_token(TOKEN_RIGHT_PAREN, NULL);
-      if (c == '{')
-        return create_token(TOKEN_BRACE_LEFT, NULL);
-      if (c == '}')
-        return create_token(TOKEN_BRACE_RIGHT, NULL);
+      if (c == '@')
+        return create_token(TOKEN_AT, NULL);
+      if (c == ':')
+        return create_token(TOKEN_COLON, NULL);
+      if (c == ';')
+          return create_token(TOKEN_SEMICOLON, NULL); 
       if (c == '*')
         return create_token(TOKEN_ASTERISK, NULL);
       if (c == '+')
@@ -197,7 +199,7 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_COMMA, NULL);
       if (c == EOF)
         return create_token(TOKEN_EOF, NULL);
-
+        
       // Multicharacter tokens
       if (c == '<') {
         state = STATE_LESS;
