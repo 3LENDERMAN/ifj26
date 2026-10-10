@@ -280,7 +280,7 @@ Token *get_token(FILE *file) {
         // when eof, check if all blocks are closed, if not, close all
         if (indent_top > 0) {
           indent_top--;
-          pending_indents = indent_top; // send all remaining indents
+          ungetc(c, file);
           return create_token(TOKEN_INDENT_END, NULL);
         }
         return create_token(TOKEN_EOF, NULL);
@@ -403,9 +403,13 @@ Token *get_token(FILE *file) {
 
     case STATE_LINE_COMMENT:
       if (c == '\n') {
+        is_line_start = true;
+        space_count = 0;
         return create_token(TOKEN_NEWLINE, NULL);
       } else if (c == EOF) {
-        return create_token(TOKEN_EOF, NULL);
+        ungetc(c, file); 
+        state = STATE_START; 
+        continue;
       }
       // Here ignore everything else inside one-line comment
       break;
@@ -459,10 +463,14 @@ Token *get_token(FILE *file) {
           c == '\r') { // whitespace chars before \n are allowed
         continue;
       } else if (c == '\n') { // end of line
+        is_line_start = true;
+        space_count = 0;
         return create_token(TOKEN_NEWLINE, NULL);
       } else if (c == EOF) {
         ungetc(c, file);
-        return create_token(TOKEN_NEWLINE, NULL);
+        state = STATE_START;
+        continue;
+        
       } else { // Another token after block comment is not allowed
         throw_error(LEXER_ERROR, "Tokens after newline block comment.");
       }
@@ -638,6 +646,7 @@ Token *get_token(FILE *file) {
       } else if (c == '\\') {
         state = STATE_STR_ESCAPE; // starts escape sequence..
       } else if (c == '\n' || c == EOF) {
+        dstring_free(&attribute_str);
         throw_error(LEXER_ERROR,
                     "One line string contains newline character or EOF");
       } else {
