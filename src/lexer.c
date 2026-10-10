@@ -138,14 +138,13 @@ Token *get_token(FILE *file) {
     STATE_NUM_EXP_USC,   // exponent
 
     // String literals
-    STATE_STR_START,     // " Loaded
-    STATE_STR_TWO_QTS,   // "" loaded
-    STATE_STR,           // Normal oneline string
-    STATE_STR_ESCAPE,    // Found / in standard string
-    STATE_STR_MULTI,     // Multiline string
-    STATE_STR_MULTI_Q1,  // Found first " on exit
-    STATE_STR_MULTI_Q2   // Found second "" on exit
-
+    STATE_STR_START,    // " Loaded
+    STATE_STR_TWO_QTS,  // "" loaded
+    STATE_STR,          // Normal oneline string
+    STATE_STR_ESCAPE,   // Found / in standard string
+    STATE_STR_MULTI,    // Multiline string
+    STATE_STR_MULTI_Q1, // Found first " on exit
+    STATE_STR_MULTI_Q2  // Found second "" on exit
 
   } lexer_state;
 
@@ -176,7 +175,7 @@ Token *get_token(FILE *file) {
         int next_c = fgetc(file);
         if (next_c == ')') {
           return create_token(TOKEN_UNIT_LITERAL, NULL); // ()
-        } else {                                 // just ( -> go back
+        } else {                                         // just ( -> go back
           ungetc(next_c, file);
           return create_token(TOKEN_LEFT_PAREN, NULL);
         }
@@ -188,7 +187,7 @@ Token *get_token(FILE *file) {
       if (c == ':')
         return create_token(TOKEN_COLON, NULL);
       if (c == ';')
-          return create_token(TOKEN_SEMICOLON, NULL); 
+        return create_token(TOKEN_SEMICOLON, NULL);
       if (c == '*')
         return create_token(TOKEN_ASTERISK, NULL);
       if (c == '+')
@@ -199,7 +198,7 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_COMMA, NULL);
       if (c == EOF)
         return create_token(TOKEN_EOF, NULL);
-        
+
       // Multicharacter tokens
       if (c == '<') {
         state = STATE_LESS;
@@ -250,6 +249,16 @@ Token *get_token(FILE *file) {
         dstring_append_char(&attribute_str, c);
         if (c == '0') {
           left_side_zero = true;
+        }
+        continue;
+      }
+
+      // String literals
+      if (c == '"') {
+        state = STATE_STR_START;
+        if (!dstring_init(&attribute_str)) {
+          throw_error(INTERNAL_ERROR,
+                      "Failed to allocate memory for dynamic string");
         }
         continue;
       }
@@ -518,6 +527,88 @@ Token *get_token(FILE *file) {
       } else {
         throw_error(LEXER_ERROR,
                     "Wrong syntax - underscores must be between digits");
+      }
+      break;
+    case STATE_STR_START:
+      if (c == '"') {
+        state = STATE_STR_TWO_QTS; // loaded ""
+      } else {
+        ungetc(c, file);
+        state = STATE_STR; // normal string "abc"
+      }
+      break;
+    case STATE_STR_TWO_QTS:
+      if (c == '"') {
+        state = STATE_STR_MULTI; // loaded """
+      } else {
+        ungetc(c, file);
+        return create_token(TOKEN_STR_LITERAL, &attribute_str);
+      }
+      break;
+    case STATE_STR:
+      if (c == '"') {
+        return create_token(TOKEN_STR_LITERAL, &attribute_str);
+      } else if (c == '\\') {
+        state = STATE_STR_ESCAPE; // starts escape sequence..
+      } else if (c == '\n' || c == EOF) {
+        throw_error(LEXER_ERROR,
+                    "One line string contains newline character or EOF");
+      } else {
+        dstring_append_char(&attribute_str, c);
+      }
+
+      break;
+
+    // EScape sequences (\n, \r, \t, \\)
+    case STATE_STR_ESCAPE:
+      if (c == '"')
+        dstring_append_char(&attribute_str, '"');
+      else if (c == 'n')
+        dstring_append_char(&attribute_str, '\n');
+      else if (c == 'r')
+        dstring_append_char(&attribute_str, '\r');
+      else if (c == 't')
+        dstring_append_char(&attribute_str, '\t');
+      else if (c == '\\')
+        dstring_append_char(&attribute_str, '\\');
+      else {
+        throw_error(LEXER_ERROR, "Invalid escape sequence");
+      }
+      state = STATE_STR; // back to reading
+      break;
+
+    // Multiline string """.."""
+    case STATE_STR_MULTI:
+      if (c == '"') {
+        state = STATE_STR_MULTI_Q1;
+      } else if (c == EOF) {
+        throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
+      } else {
+        dstring_append_char(&attribute_str, c);
+      }
+      break;
+    case STATE_STR_MULTI_Q1:
+      if (c == '"') {
+        state = STATE_STR_MULTI_Q2; // part of end sequence ""
+      } else if (c == EOF) {
+        throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
+      } else {
+        dstring_append_char(&attribute_str, '"'); // keep the " character
+        dstring_append_char(&attribute_str, c);   // and next character
+        state = STATE_STR_MULTI;
+      }
+      break;
+    case STATE_STR_MULTI_Q2:
+      if (c == '"') {
+        return create_token(TOKEN_STR_LITERAL,
+                            &attribute_str); // """ loaded -> string ends
+      } else if (c == EOF) {
+        throw_error(LEXER_ERROR, "EOF before exiting multiline string literal");
+      } else {
+        dstring_append_char(&attribute_str, '"');
+        dstring_append_char(&attribute_str, '"'); // keep both ""
+        dstring_append_char(&attribute_str, c);
+        state = STATE_STR_MULTI;
       }
       break;
     }
