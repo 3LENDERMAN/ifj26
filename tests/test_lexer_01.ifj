@@ -1,9 +1,6 @@
-// ignore this row
-def my_func(a) {
-    if (a <= 5) {
-        /* nested comment 123
-           /* new line nested comment */
-        */
+def my_func(a: Int): Int = 
+    if (a <= 5) then
         var b = a + 10
-    }
-}
+        return b
+    else
+        return a
