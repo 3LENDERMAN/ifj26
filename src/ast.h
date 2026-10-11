@@ -79,6 +79,7 @@ struct expr {
         char *name;
         struct {
             expr *expr;
+            op_type op;
         } unary;
         struct {
             expr *left;
@@ -143,11 +144,11 @@ typedef struct {
 } func_def;
 
 typedef struct {
-    func_def *funcs;
+    func_def **funcs;
     int count;
 } program;
 
-/* Utility functions */
+/* Allocation functions */
 void *ast_xcalloc(size_t n, size_t size);
 void *ast_xrealloc(void *ptr, size_t size);
 char *ast_xstrdup(const char *s);
