@@ -9,12 +9,20 @@
 #include <string.h>
 #include "error.h"
 
+#define RING_BUFFER_SIZE 8
+
 struct TokenStream
 {
     FILE *file;
     Token *tokens;
     size_t tokens_count;
     size_t token_index; // index of the first unprocessed token in the array
+
+    const Token *ring_buffer[RING_BUFFER_SIZE];
+    size_t head; // index of the first buffered token
+    size_t buffered_count;
+
+    const Token *eof_token;
 };
 
 /**
@@ -68,7 +76,15 @@ TokenStream *ts_create_from_array(const Token *tokens, size_t count)
  **/
 static const Token *fetch_next_token(TokenStream *stream)
 {
-    return NULL; // Placeholder
+    if (stream->file != NULL)
+    {
+        return get_token(stream->file);
+    }
+    if (stream->token_index < stream->tokens_count)
+    {
+        return &stream->tokens[stream->token_index++];
+    }
+    return NULL;
 }
 
 /**
@@ -76,7 +92,39 @@ static const Token *fetch_next_token(TokenStream *stream)
  **/
 const Token *ts_peek(TokenStream *stream, int offset)
 {
-    return NULL; // Placeholder
+    // Check for valid offset, maximum lookahead is RING_BUFFER_SIZE - 1
+    if (offset < 0 || offset >= RING_BUFFER_SIZE)
+    {
+        throw_error(INTERNAL_ERROR, "Lookahead offset is larger than the ring buffer size.");
+    }
+
+    while (stream->buffered_count <= (size_t)offset)
+    {
+        const Token *token;
+        if (stream->eof_token != NULL)
+        {
+            token = stream->eof_token;
+        }
+        else
+        {
+            token = fetch_next_token(stream);
+            if (token == NULL || token->type == TOKEN_EOF)
+            {
+                if (token == NULL)
+                {
+                    // Array ended without EOF token, use fallback EOF token
+                    static const Token fallback_eof = {TOKEN_EOF, {0}};
+                    token = &fallback_eof;
+                }
+                stream->eof_token = token;
+            }
+        }
+
+        stream->ring_buffer[(stream->head + stream->buffered_count) % RING_BUFFER_SIZE] = token;
+        stream->buffered_count++;
+    }
+
+    return stream->ring_buffer[(stream->head + (size_t)offset) % RING_BUFFER_SIZE];
 }
 
 /**
@@ -84,7 +132,10 @@ const Token *ts_peek(TokenStream *stream, int offset)
  **/
 const Token *ts_next(TokenStream *stream)
 {
-    return NULL; // Placeholder
+    const Token *token = ts_peek(stream, 0);
+    stream->head = (stream->head + 1) % RING_BUFFER_SIZE;
+    stream->buffered_count--;
+    return token;
 }
 
 /**
