@@ -67,13 +67,60 @@ typedef enum {
 } stmt_type;
 
 typedef struct expr expr;
+
 struct expr {
-    /**/
-    };
+    expr_type e_type;
+    data_type d_type;
+    int line;
+    union {
+        long long int_val;
+        double double_val;
+        char *str_val;
+        char *name;
+        struct {
+            expr *expr;
+        } unary;
+        struct {
+            expr *left;
+            expr *right;
+            op_type op;
+        } binary;
+        struct {
+            expr **args;
+            int argc;
+            char *name;
+        } call;
+    } as;
+
+};
 
 typedef struct stmt stmt;
+
 struct stmt {
-    /**/
+    stmt_type type;
+    int line;
+    union {
+        struct {
+            char *name;
+            data_type declared;
+            expr *init;
+        } decl;
+        struct {
+            char *name;
+            expr *value;
+        } assign;
+        struct {
+            expr *expr;
+        } expr;
+        struct {
+            expr *cond;
+            block then_b, else_b;
+        } if_;
+        struct {
+            expr *cond;
+            block body;
+        } while_;
+    } as;
 };
 
 typedef struct {
@@ -87,7 +134,12 @@ typedef struct {
 } param;
 
 typedef struct {
+    int line;
     char *name;
+    data_type ret_type;
+    int param_count;
+    param *params;
+    block body;
 } func_def;
 
 typedef struct {
@@ -95,6 +147,12 @@ typedef struct {
     int count;
 } program;
 
+/* Utility functions */
+void *ast_xcalloc(size_t n, size_t size);
+void *ast_xrealloc(void *ptr, size_t size);
+char *ast_xstrdup(const char *s);
+
+/* Free functions */
 void ast_free_expr(expr *e);
 void ast_free_program(program *p);
 
