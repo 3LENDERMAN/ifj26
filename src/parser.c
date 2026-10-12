@@ -248,10 +248,158 @@ static program *parse_program(TokenStream *stream)
     return prog;
 }
 
-// Placeholder
+/**
+ * Parse function, params, return type and body, also check for @main
+ **/
 static func_def *parse_function(TokenStream *stream)
 {
+    bool main_flag = false;
+    if (token_match(stream, TOKEN_AT))
+    {
+        const Token *id_token = token_expect(stream, TOKEN_IDENTIFIER, "'main' after '@'");
+        if (strcmp(safe_str(id_token), "main") != 0)
+        {
+            parser_error(SYNTAX_ERROR, "Expected 'main' after '@'");
+        }
+        main_flag = true;
+        skip_blank_lines(stream);
+    }
 
-    (void)stream;
+    token_expect(stream, TOKEN_KW_DEF, "'def'");
+    const Token *id_token = token_expect(stream, TOKEN_IDENTIFIER, "function name");
+
+    func_def *funct = ast_xcalloc(1, sizeof(func_def));
+    funct->name = ast_xstrdup(safe_str(id_token));
+    (void)main_flag;
+    funct->ret_type = TYPE_UNKNOWN;
+
+    // The lexer returns "()" as one UNIT_LITERAL token, so no parameters
+    if (!token_match(stream, TOKEN_UNIT_LITERAL))
+    {
+        token_expect(stream, TOKEN_LEFT_PAREN, "'('");
+        if (!token_is(stream, TOKEN_RIGHT_PAREN))
+        {
+            do
+            {
+                if (token_is(stream, TOKEN_RIGHT_PAREN))
+                    break;
+
+                const Token *param_id = token_expect(stream, TOKEN_IDENTIFIER, "parameter name");
+                token_expect(stream, TOKEN_COLON, "':' before parameter type");
+                data_type param_type = parse_datatype(stream);
+
+                funct->param_count++;
+                funct->params = ast_xrealloc(funct->params, sizeof(param) * funct->param_count);
+                funct->params[funct->param_count - 1] = (param){
+                    .name = ast_xstrdup(safe_str(param_id)),
+                    .type = param_type};
+
+            } while (token_match(stream, TOKEN_COMMA));
+        }
+        token_expect(stream, TOKEN_RIGHT_PAREN, "')'");
+    }
+
+    // Return type is optional
+    if (token_match(stream, TOKEN_COLON))
+    {
+        funct->ret_type = parse_datatype(stream);
+    }
+
+    token_expect(stream, TOKEN_ASSIGN, "'='");
+
+    if (token_is(stream, TOKEN_NEWLINE))
+    {
+        // There is a newline after the function header, and the body must be indented block
+        skip_blank_lines(stream);
+        funct->body = parse_block(stream);
+    }
+    else
+    {
+        // Body on one line must be single expression
+        expr *single_expr = parse_expression(stream);
+        check_statement_end(stream);
+
+        stmt *statement = ast_xcalloc(1, sizeof(stmt));
+        statement->type = STMT_EXPR;
+        statement->as.expr.expr = single_expr;
+
+        funct->body.count = 1;
+        funct->body.items = ast_xcalloc(1, sizeof(stmt *));
+        funct->body.items[0] = statement;
+    }
+
+    return funct;
+}
+
+/**
+ * Parse a data type
+ **/
+static data_type parse_datatype(TokenStream *stream)
+{
+    const Token *token = ts_peek(stream, 0);
+    if (token)
+    {
+        switch (token->type)
+        {
+        case TOKEN_KW_INT:
+            ts_next(stream);
+            return TYPE_INT;
+        case TOKEN_KW_DOUBLE:
+            ts_next(stream);
+            return TYPE_DOUBLE;
+        case TOKEN_KW_STRING:
+            ts_next(stream);
+            return TYPE_STRING;
+        case TOKEN_KW_UNIT:
+            ts_next(stream);
+            return TYPE_UNIT;
+        default:
+            break;
+        }
+    }
+
+    parser_error(SYNTAX_ERROR, "Expected valid data type, but got %s",
+                 token ? token_type_name(token->type) : "nothing");
+    return TYPE_UNKNOWN;
+}
+
+/**
+ * Parse indented block
+ **/
+static block parse_block(TokenStream *stream)
+{
+    block blck = {0};
+
+    token_expect(stream, TOKEN_INDENT_START, "indent start");
+    skip_blank_lines(stream);
+
+    while (!token_is(stream, TOKEN_INDENT_END) && !token_is(stream, TOKEN_EOF))
+    {
+        stmt *statement = parse_stmt(stream);
+        blck.count++;
+        blck.items = ast_xrealloc(blck.items, sizeof(stmt *) * blck.count);
+        blck.items[blck.count - 1] = statement;
+        skip_blank_lines(stream);
+    }
+
+    // Blocks must have at least one statement
+    if (blck.count == 0)
+    {
+        parser_error(SYNTAX_ERROR, "Block cannot be empty");
+    }
+
+    token_expect(stream, TOKEN_INDENT_END, "indent end");
+    return blck;
+}
+
+// Placeholder
+static stmt *parse_stmt(TokenStream *stream)
+{
+    return NULL;
+}
+
+// Placeholder
+static expr *parse_expression(TokenStream *stream)
+{
     return NULL;
 }
