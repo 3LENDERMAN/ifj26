@@ -1,7 +1,7 @@
 /**
  * IFJ26 Compiler - Parser implementation
  * Author: Vít Kutěj (xkutejv00)
- * Date: 11.10.2026
+ * Date: 12.10.2026
  **/
 
 #include <stdio.h>
@@ -359,7 +359,7 @@ static data_type parse_datatype(TokenStream *stream)
     }
 
     parser_error(SYNTAX_ERROR, "Expected valid data type, but got %s",
-                 token ? token_type_name(token->type) : "nothing");
+                 token ? token_type_string(token->type) : "nothing");
     return TYPE_UNKNOWN;
 }
 
@@ -392,10 +392,139 @@ static block parse_block(TokenStream *stream)
     return blck;
 }
 
-// Placeholder
+/**
+ * Parse statement, var, val, if, while, return, assignment or expression
+ **/
 static stmt *parse_stmt(TokenStream *stream)
 {
-    return NULL;
+    if (token_is(stream, TOKEN_KW_VAL) || token_is(stream, TOKEN_KW_VAR))
+    {
+        stmt *statement = ast_xcalloc(1, sizeof(stmt));
+        bool is_val = token_is(stream, TOKEN_KW_VAL);
+        ts_next(stream);
+
+        const Token *var_token = token_expect(stream, TOKEN_IDENTIFIER, "var name");
+        data_type declared_type = TYPE_UNKNOWN;
+
+        if (token_match(stream, TOKEN_COLON))
+        {
+            declared_type = parse_datatype(stream);
+        }
+
+        token_expect(stream, TOKEN_ASSIGN, "'='");
+        expr *init_expr = parse_expression(stream);
+        check_statement_end(stream);
+
+        statement->type = is_val ? STMT_VAL : STMT_VAR;
+        statement->as.decl.name = ast_xstrdup(safe_str(var_token));
+        statement->as.decl.declared = declared_type;
+        statement->as.decl.init = init_expr;
+        return statement;
+    }
+
+    if (token_is(stream, TOKEN_KW_IF))
+    {
+        return parse_if_clause(stream);
+    }
+
+    if (token_is(stream, TOKEN_KW_WHILE))
+    {
+        return parse_while_loop(stream);
+    }
+
+    // Return with optional expression
+    if (token_match(stream, TOKEN_KW_RETURN))
+    {
+        stmt *statement = ast_xcalloc(1, sizeof(stmt));
+        expr *return_expr = NULL;
+
+        if (!at_statement_boundary(stream))
+        {
+            return_expr = parse_expression(stream);
+        }
+        check_statement_end(stream);
+
+        statement->type = STMT_RETURN;
+        statement->as.expr.expr = return_expr;
+        return statement;
+    }
+
+    // Lookahead to avoid confusion between assignment and expression
+    if (get_peek_type(stream, 0) == TOKEN_IDENTIFIER && get_peek_type(stream, 1) == TOKEN_ASSIGN)
+    {
+        stmt *statement = ast_xcalloc(1, sizeof(stmt));
+        const Token *id_token = ts_next(stream);
+        ts_next(stream);
+
+        expr *assigned_val = parse_expression(stream);
+        check_statement_end(stream);
+
+        statement->type = STMT_ASSIGN;
+        statement->as.assign.name = ast_xstrdup(safe_str(id_token));
+        statement->as.assign.value = assigned_val;
+        return statement;
+    }
+
+    // Expression statement or function call
+    stmt *statement = ast_xcalloc(1, sizeof(stmt));
+    expr *expression = parse_expression(stream);
+    check_statement_end(stream);
+
+    statement->type = STMT_EXPR;
+    statement->as.expr.expr = expression;
+    return statement;
+}
+
+/**
+ * Parse body after then, else or do
+ **/
+static block parse_body(TokenStream *stream)
+{
+    if (!token_is(stream, TOKEN_NEWLINE))
+    {
+        parser_error(SYNTAX_ERROR, "Expected newline and indented block");
+    }
+    skip_blank_lines(stream);
+    return parse_block(stream);
+}
+
+/**
+ * Parse if statement
+ **/
+static stmt *parse_if_clause(TokenStream *stream)
+{
+    stmt *statement = ast_xcalloc(1, sizeof(stmt));
+    statement->type = STMT_IF;
+
+    token_expect(stream, TOKEN_KW_IF, "'if'");
+    statement->as.if_.cond = parse_expression(stream);
+    token_expect(stream, TOKEN_KW_THEN, "'then'");
+
+    statement->as.if_.then_b = parse_body(stream);
+
+    skip_blank_lines(stream);
+
+    token_expect(stream, TOKEN_KW_ELSE, "'else'");
+    statement->as.if_.else_b = parse_body(stream);
+
+    return statement;
+}
+
+/**
+ * Parse while loop
+ **/
+static stmt *parse_while_loop(TokenStream *stream)
+{
+    stmt *statement = ast_xcalloc(1, sizeof(stmt));
+    statement->type = STMT_WHILE;
+
+    token_expect(stream, TOKEN_KW_WHILE, "'while'");
+    statement->as.while_.cond = parse_expression(stream);
+    token_expect(stream, TOKEN_KW_DO, "'do'");
+
+    statement->as.while_.body = parse_body(stream);
+
+    return statement;
 }
 
 // Placeholder
