@@ -1,0 +1,24 @@
+// rozšířený test IFJ26 programu
+def calculate_physics(mass: Double, velocity: Double): Double =
+    var energy = 0.5 * mass * velocity * velocity
+    if (energy > 1_000_000.5e-2) then
+        return energy
+    else
+        var boost = 50_000.0
+        return energy + boost
+
+def main(): Unit =
+    var m = 10.5
+    var v = -5.0  // komentář //
+    var result = calculate_physics(m, v)
+    
+    var counter = 0
+    while (counter < 10) do
+        result = result + 1.0
+        counter = counter + 1
+        
+        if (counter == 5) then
+            result = result * 2.0
+            
+    // otevřený main a while
+    // lexer musí vygenerovat dva TOKEN_INDENT_END a pak EOF
