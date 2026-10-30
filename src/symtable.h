@@ -16,7 +16,7 @@ typedef enum {
     SYMBOL_VAR,// variable
     SYMBOL_VAL, // set value, constant
     SYMBOL_FUNC // function
-} symbol_kind_t
+} symbol_kind_t;
 
 
 // symbol data (info known about symbol)
@@ -55,7 +55,16 @@ typedef struct {
 } symtable_stack_t;
 
 //// Interface for SEMANTIC ANALYSIS
-// TODO: add interface header functions
+
+/**
+ * Initializes the symbol table stack.
+ */
+symtable_stack_t *symtable_init(void);
+
+/**
+ * Frees the symbol table stack.
+ */
+void symtable_free(symtable_stack_t *stack);
 
 
 #endif // SYMTABLE_H

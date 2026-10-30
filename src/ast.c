@@ -59,7 +59,7 @@ void ast_free_expr(expr *e) {
         }
         free(e->as.call.args);
         free(e->as.call.name);
-        break; // Přidán chybějící break
+        break;
     default:
         break;
     }
