@@ -1,0 +1,16 @@
+
+def math_magic(a: Int, b: Int): Int =
+    var result = (
+        a +
+        (
+            b * 10
+        )
+        - 5
+    )
+
+    var x = @write(
+        "toto volani je rozlozene ",
+        "na vice radku."
+    )
+
+    return result
