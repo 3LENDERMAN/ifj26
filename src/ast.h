@@ -7,12 +7,10 @@
 #ifndef AST_H
 #define AST_H
 
+#include <stddef.h> // size_t
 
-/*
-    Definiton of data types
-*/
+/* Definiton of data types */
 typedef enum {
-    // Not known yet, filled in by semantic analysis
     TYPE_UNKNOWN,
     TYPE_INT,
     TYPE_DOUBLE,
@@ -21,9 +19,7 @@ typedef enum {
     TYPE_BOOL
 } data_type;
 
-/*
-    Definition of expression types
-*/
+/* Definition of expression types */
 typedef enum {
     EXPR_INT,
     EXPR_DOUBLE,
@@ -32,30 +28,16 @@ typedef enum {
     EXPR_VAR,
     EXPR_UNARY,
     EXPR_BINARY,
-    // Function call
     EXPR_CALL
 } expr_type;
 
-/*
-    Definition of operations
-*/
+/* Definition of operations */
 typedef enum {
-    OP_ADD,
-    OP_SUB,
-    OP_MUL,
-    OP_DIV,
-    OP_NEG,
-    OP_LT,
-    OP_LE,
-    OP_GT,
-    OP_GE,
-    OP_EQ,
-    OP_NE
+    OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_NEG,
+    OP_LT, OP_LE, OP_GT, OP_GE, OP_EQ, OP_NE
 } op_type;
 
-/*
-    Definition of statements
-*/
+/* Definition of statements */
 typedef enum {
     STMT_VAL,
     STMT_VAR,
@@ -67,6 +49,13 @@ typedef enum {
 } stmt_type;
 
 typedef struct expr expr;
+typedef struct stmt stmt;
+typedef struct block block;
+
+struct block {
+    stmt **items;
+    int count;
+};
 
 struct expr {
     expr_type e_type;
@@ -92,10 +81,7 @@ struct expr {
             char *name;
         } call;
     } as;
-
 };
-
-typedef struct stmt stmt;
 
 struct stmt {
     stmt_type type;
@@ -123,11 +109,6 @@ struct stmt {
         } while_;
     } as;
 };
-
-typedef struct {
-    stmt **items;
-    int count;
-} block;
 
 typedef struct {
     char *name;

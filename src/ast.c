@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /* Alocation functions */
 void *ast_xcalloc(size_t n, size_t size) {
     void *p = calloc(n, size);
@@ -48,7 +47,7 @@ void ast_free_expr(expr *e) {
         free(e->as.name);
         break;
     case EXPR_UNARY:
-        ast_free_expr(e->as.unary.op);
+        ast_free_expr(e->as.unary.expr);
         break;
     case EXPR_BINARY:
         ast_free_expr(e->as.binary.left);
@@ -60,9 +59,14 @@ void ast_free_expr(expr *e) {
         }
         free(e->as.call.args);
         free(e->as.call.name);
+        break; // Přidán chybějící break
+    default:
+        break;
     }
     free(e);
 }
+
+static void free_stmt(stmt *s);
 
 static void free_block(block *b) {
     for(int i = 0; i < b->count; i++) {
