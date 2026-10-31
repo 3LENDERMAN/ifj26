@@ -66,6 +66,16 @@ symtable_stack_t *symtable_init(void);
  */
 void symtable_free(symtable_stack_t *stack);
 
+/**
+ * Enters a new scope (pushes a new table to the stack)
+*/
+void symtable_enter_scope(symtable_stack_t *stack);
+
+/**
+ * Exits the current scope (pops the top table from the stack).
+ */
+void symtable_exit_scope(symtable_stack_t *stack);
+
 
 #endif // SYMTABLE_H
 

@@ -53,6 +53,21 @@ static void table_free(symtable_t *table) {
     free(table);
 }
 
+/**
+ * Hash function djb2 - converts string into integer
+ */
+static unsigned long hash_function(const char *str) {
+    unsigned long hash = 5381;
+    int c;
+
+    // loop through every char of string until char '\0'
+    while ((c = *str++)) {
+        // hash * 33 + c
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash;
+}
+
 //// Public functions for semantic analyser
 
 
@@ -93,4 +108,31 @@ void symtable_free(symtable_stack_t *stack) {
 
     free(stack->tables);
     free(stack);
+}
+
+void symtable_enter_scope(symtable_stack_t *stack) {
+    if (stack ==NULL) return;
+
+    // if stack is full -> double its capacity
+    if (stack->top + 1 >= stack->capacity) {
+        stack->capacity *= 2;
+        stack->tables = realloc(stack->tables, stack->capacity * sizeof(symtable_t *));
+    }
+
+    // create new symbol table for the new scope
+    symtable_t *new_table = table_init(INITIAL_HT_CAPACITY);
+
+    // push it to the top of the stack
+    stack->top++;
+    stack->tables[stack->top] = new_table;
+}
+
+void symtable_exit_scope(symtable_stack_t *stack) {
+    if (stack == NULL) return;
+
+    if (stack->top > 0) {
+        // free the top table
+        table_free(stack->tables[stack->top]);
+        stack->top--; // move top pointer down
+    }
 }
