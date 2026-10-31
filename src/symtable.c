@@ -103,6 +103,22 @@ static bool table_resize(symtable_t *table) {
     return true;
 }
 
+static ht_item_t *table_find(symtable_t *table, const char *key) {
+    unsigned long index = hash_function(key) % table->capacity;
+    int start_index = (int)index;
+
+    // keep looping if element is occupied or deleted
+    while (table->items[index].is_occupied || table->items[index].is_deleted) {
+        // if elem occupied and key matches -> FOUND
+        if (table->items[index].is_occupied && strcmp(table->items[index].key, key) == 0) {
+            return &table->items[index];
+        }
+        index = (index + 1) % table->capacity; // move to next element
+
+    }
+    return NULL; //key doesnt exit..
+}
+
 //// Public functions for semantic analyser
 
 
