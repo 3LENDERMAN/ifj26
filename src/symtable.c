@@ -256,4 +256,27 @@ bool symtable_insert_func(symtable_stack_t *stack, const char *name, data_type r
     return true;
 }
 
+/**
+ * Searches for a variable in the symbol table stack from the most local scope down to the global scope
+ * handles variable shadowing by returning the closest active definition (local variables have bigger priority than global ones)
+ */
+ht_item_t *symtable_lookup_var(symtable_stack_t *stack, const char *name) {
+    // Search the stack from top (loacl) to bottom (global)
+    for (int i = stack->top; i >= 0; i--) {
+        ht_item_t *item = table_find(stack->tables[i], name);
+        if (item != NULL) {
+            return item; // item found
+        }
+    }
+    return NULL; // not found
+}
 
+
+/**
+ * Searches for a function in the global scope at the bottom of the stack (index 0)
+ * it provides optimalization 
+ */
+ht_item_t *symtable_lookup_func(symtable_stack_t *stack, const char *name) {
+    // functions are only in the global scope (index 0)
+    return table_find(stack->tables[0], name);
+}

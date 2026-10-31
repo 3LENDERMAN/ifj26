@@ -81,5 +81,8 @@ bool symtable_insert_var(symtable_stack_t *stack, const char *name, data_type ty
 
 bool symtable_insert_func(symtable_stack_t *stack, const char *name, data_type ret_type, int param_count, param *params);
 
+ht_item_t *symtable_lookup_var(symtable_stack_t *stack, const char *name);
+ht_item_t *symtable_lookup_func(symtable_stack_t *stack, const char *name);
+
 #endif // SYMTABLE_H
 
