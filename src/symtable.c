@@ -68,6 +68,7 @@ static unsigned long hash_function(const char *str) {
     return hash;
 }
 
+//// Internal open addressing logic implementation
 
 /**
  * Resizes hash table when its almost full 
@@ -103,6 +104,9 @@ static bool table_resize(symtable_t *table) {
     return true;
 }
 
+/**
+ * Internal static find function for a single table using linear search
+ */
 static ht_item_t *table_find(symtable_t *table, const char *key) {
     unsigned long index = hash_function(key) % table->capacity;
     int start_index = (int)index;
@@ -121,7 +125,10 @@ static ht_item_t *table_find(symtable_t *table, const char *key) {
 
 //// Public functions for semantic analyser
 
-
+/**
+ * Initializes the symbol table stack and creates global scope (idx 0)
+ * function called at the beginning of the semantic analysis
+*/
 symtable_stack_t *symtable_init(void) {
     symtable_stack_t *stack = malloc(sizeof(symtable_stack_t));
     if (stack == NULL) return NULL;
@@ -149,6 +156,10 @@ symtable_stack_t *symtable_init(void) {
     return stack;
 }
 
+/**
+ * Frees the whole symbol table stack, including all remaining hash tables
+ * all dynamically allocated memory is properly released before the end of compilation
+ */
 void symtable_free(symtable_stack_t *stack) {
     if (stack == NULL) return;
 
@@ -161,6 +172,10 @@ void symtable_free(symtable_stack_t *stack) {
     free(stack);
 }
 
+/**
+ * Enters a new scope by creating new hash table and pushing it on top of the stack
+ * used to handle local variables inside blocks (if,while,functions)
+ */
 void symtable_enter_scope(symtable_stack_t *stack) {
     if (stack ==NULL) return;
 
@@ -178,6 +193,10 @@ void symtable_enter_scope(symtable_stack_t *stack) {
     stack->tables[stack->top] = new_table;
 }
 
+/**
+ * Exits the current scope by destroying the top hash table on the stack
+ * all local variables declared in this scope are removed
+ */
 void symtable_exit_scope(symtable_stack_t *stack) {
     if (stack == NULL) return;
 
