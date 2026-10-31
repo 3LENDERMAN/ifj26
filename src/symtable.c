@@ -11,6 +11,8 @@
 
 #define INITIAL_HT_CAPACITY 16
 #define INITIAL_STACK_CAPACITY 8
+#define LIMIT_TO_RESIZE 0.75 // resizing threshold
+
 
 //// Hash table internal private functions:
 
@@ -206,3 +208,47 @@ void symtable_exit_scope(symtable_stack_t *stack) {
         stack->top--; // move top pointer down
     }
 }
+
+//// Public insert and lookup for semantics
+
+/**
+ * Inserts a new variable or constant into the current active scope at the top of stack
+ * It uses linear search for placement, returns false if the name is already declared in this scope
+ */
+bool symtable_insert_var(symtable_stack_t *stack, const char *name, data_type type, bool is_const) {
+    symtable_t *current_table = stack->tables[stack->top];
+    if (table_find(current_table, name) != NULL) {
+        return false;
+    }
+
+    // resize if table is getting full
+    if ((float)current_table->size / current_table->capacity >= LIMIT_TO_RESIZE) {
+        table_resize(current_table);
+    }
+
+    // find next empty element using linear search
+    unsigned long index = hash_function(name) % current_table->capacity;
+    while (current_table->items[index].is_occupied && !current_table->items[index].is_deleted) {
+        index = (index + 1) % current_table->capacity;
+    }
+
+    // Insert the new variable
+    current_table->items[index].key = ast_xstrdup(name); // Duplicate string into heap
+    current_table->items[index].is_occupied = true;
+    current_table->items[index].is_deleted = false;
+
+    current_table->items[index].data.kind = is_const ? SYMBOL_VAL : SYMBOL_VAR;
+    current_table->items[index].data.type = type;
+    current_table->items[index].data.is_initialized = true;
+    current_table->items[index].data.param_count = 0;
+    current_table->items[index].data.param_types = NULL;
+
+    current_table->size++;
+    return true;
+}
+
+bool symtable_insert_func(symtable_stack_t *stack, const char *name, data_type ret_type, int param_count, param *params) {
+    return true;
+}
+
+

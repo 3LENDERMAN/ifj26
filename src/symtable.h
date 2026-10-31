@@ -27,7 +27,7 @@ typedef struct {
     int param_count; // num of params in function
     data_type *param_types; // array of param types in function
 
-    bool is_init; // variable specific data -> was value assigned to variable?
+    bool is_initialized; // variable specific data -> was value assigned to variable?
 } symbol_data_t;
 
 // hash table item - open addressing element 
@@ -76,6 +76,10 @@ void symtable_enter_scope(symtable_stack_t *stack);
  */
 void symtable_exit_scope(symtable_stack_t *stack);
 
+
+bool symtable_insert_var(symtable_stack_t *stack, const char *name, data_type type, bool is_const);
+
+bool symtable_insert_func(symtable_stack_t *stack, const char *name, data_type ret_type, int param_count, param *params);
 
 #endif // SYMTABLE_H
 
