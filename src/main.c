@@ -23,11 +23,10 @@ int main(int argc, char **argv) {
 
   // TODO: init of compiler, call parser
 
-
   if (input != stdin) {
     fclose(input);
   }
-  
+
   // cleanup dynamic memory allocation
   cleanup_garbage();
 
