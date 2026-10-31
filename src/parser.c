@@ -270,7 +270,7 @@ static func_def *parse_function(TokenStream *stream)
 
     func_def *funct = ast_xcalloc(1, sizeof(func_def));
     funct->name = ast_xstrdup(safe_str(id_token));
-    (void)main_flag;
+    funct->is_main = main_flag;
     funct->ret_type = TYPE_UNKNOWN;
 
     // The lexer returns "()" as one UNIT_LITERAL token, so no parameters
