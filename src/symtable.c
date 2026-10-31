@@ -68,6 +68,35 @@ static unsigned long hash_function(const char *str) {
     return hash;
 }
 
+
+/**
+ * Resizes hash table when its almost full 
+*/
+static bool table_resize(symtable_t *table) {
+    int old_capacity = table->capacity;
+    ht_item_t *old_items = table->items;
+    int new_capacity = old_capacity * 2;
+    ht_item_t *new_items = calloc(new_capacity, sizeof(ht_item_t)); // create new bigger array
+    if (new_items == NULL) {
+        return false;
+    }
+    // update table ptr and capacity, reset size
+    table->capacity = new_capacity;
+    table->items = new_items;
+    table->size = 0;
+
+    // move and recalculate hash for all existing elems into new array
+    for (int i = 0; i < old_capacity; i++) {
+        // TODO: rehash to new array
+
+        unsigned long index = hash_function(old_items[i].key) % new_capacity; // new index for old element
+        // LOOP through old arr: if curr element is not deleted AND is valid -> assign calculated index:
+        
+    }
+    free(old_items);
+    return true;
+}
+
 //// Public functions for semantic analyser
 
 
