@@ -121,6 +121,11 @@ static ht_item_t *table_find(symtable_t *table, const char *key) {
         }
         index = (index + 1) % table->capacity; // move to next element
 
+        // safety break if we searched the whole table - it should not happen
+        if ((int)index == start_index) {
+            break;
+        }
+
     }
     return NULL; //key doesnt exit..
 }
