@@ -252,7 +252,49 @@ bool symtable_insert_var(symtable_stack_t *stack, const char *name, data_type ty
     return true;
 }
 
+/**
+ * Inserts a new function definition into the global scope at the bottom of the stack
+ * dynamically allocates memory for parameter types,returns false if the function is already defined
+ */
 bool symtable_insert_func(symtable_stack_t *stack, const char *name, data_type ret_type, int param_count, param *params) {
+    // Functions ALWAYS go to the global scope (index 0)
+    symtable_t *global_table = stack->tables[0];
+
+    if (table_find(global_table, name) != NULL) {
+        return false; // function already exists
+    }
+
+    // resize if table is getting full
+    if ((float)global_table->size / global_table->capacity >= LIMIT_TO_RESIZE) {
+        table_resize(global_table);
+    }
+
+    // find next empty element using linear search
+    unsigned long index = hash_function(name) % global_table->capacity;
+    while (global_table->items[index].is_occupied && !global_table->items[index].is_deleted) {
+        index = (index + 1) % global_table->capacity;
+    }
+
+    // Insert the new function
+    global_table->items[index].key = ast_xstrdup(name); // Duplicate string into heap
+    global_table->items[index].is_occupied = true;
+    global_table->items[index].is_deleted = false;
+    
+    global_table->items[index].data.kind = SYMBOL_FUNC;
+    global_table->items[index].data.type = ret_type;
+    global_table->items[index].data.param_count = param_count;
+
+    // allocate memory for array for parameter types and copy them
+    if (param_count > 0 && params != NULL) {
+        global_table->items[index].data.param_types = malloc(param_count * sizeof(data_type));
+        for (int i = 0; i < param_count; i++) {
+            global_table->items[index].data.param_types[i] = params[i].type;
+        }
+    } else {
+        global_table->items[index].data.param_types = NULL;
+    }
+
+    global_table->size++;
     return true;
 }
 
