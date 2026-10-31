@@ -87,11 +87,17 @@ static bool table_resize(symtable_t *table) {
 
     // move and recalculate hash for all existing elems into new array
     for (int i = 0; i < old_capacity; i++) {
-        // TODO: rehash to new array
+        if (old_items[i].is_occupied && !old_items[i].is_deleted) {
+            // find new slot
+            unsigned long index = hash_function(old_items[i].key) % new_capacity; // new index for old element
+            while (table->items[index].is_occupied) {
+                index = (index+1) % new_capacity; // find empty spot
+            }
 
-        unsigned long index = hash_function(old_items[i].key) % new_capacity; // new index for old element
-        // LOOP through old arr: if curr element is not deleted AND is valid -> assign calculated index:
-        
+            // move item to the new slot
+            table->items[index] = old_items[i];
+            table->size++;
+        }        
     }
     free(old_items);
     return true;
