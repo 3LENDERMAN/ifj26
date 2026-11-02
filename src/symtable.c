@@ -342,3 +342,43 @@ ht_item_t *symtable_lookup_func(symtable_stack_t *stack, const char *name) {
   // functions are only in the global scope (index 0)
   return table_find(stack->tables[0], name);
 }
+
+/**
+ * Register built-in functions
+*/
+void symtable_register_builtins(symtable_stack_t *stack) {
+    if (stack == NULL) return;
+
+    param p1;
+    param p_substr[3];
+    param p_ord[2];
+
+    symtable_insert_func(stack, "print", TYPE_UNIT, 0, NULL);
+
+    symtable_insert_func(stack, "readLine", TYPE_STRING, 0, NULL);
+
+    symtable_insert_func(stack, "readInt", TYPE_INT, 0, NULL);
+
+    symtable_insert_func(stack, "readDouble", TYPE_DOUBLE, 0, NULL);
+
+    p1.name = "value"; p1.type = TYPE_UNKNOWN;
+    symtable_insert_func(stack, "toStr", TYPE_STRING, 1, &p1);
+
+    p1.name = "value"; p1.type = TYPE_DOUBLE;
+    symtable_insert_func(stack, "toInt", TYPE_INT, 1, &p1);
+
+    p1.name = "value"; p1.type = TYPE_STRING;
+    symtable_insert_func(stack, "strLength", TYPE_INT, 1, &p1);
+
+    p_substr[0].name = "value"; p_substr[0].type = TYPE_STRING;
+    p_substr[1].name = "start"; p_substr[1].type = TYPE_INT;
+    p_substr[2].name = "end";   p_substr[2].type = TYPE_INT;
+    symtable_insert_func(stack, "subStr", TYPE_STRING, 3, p_substr);
+
+    p_ord[0].name = "value"; p_ord[0].type = TYPE_STRING;
+    p_ord[1].name = "index"; p_ord[1].type = TYPE_INT;
+    symtable_insert_func(stack, "ord", TYPE_INT, 2, p_ord);
+
+    p1.name = "code"; p1.type = TYPE_INT;
+    symtable_insert_func(stack, "chr", TYPE_STRING, 1, &p1);
+}
