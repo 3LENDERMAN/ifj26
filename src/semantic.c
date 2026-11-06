@@ -315,7 +315,7 @@ static data_type semantic_expr(expr *e, symtable_stack_t *table)
             data_type arg_t = semantic_expr(e->as.call.args[i], table);
             data_type param_t = fn->data.param_types[i];
 
-            if (arg_t != param_t && !(param_t == TYPE_DOUBLE && arg_t == TYPE_INT))
+            if (param_t != TYPE_UNKNOWN && arg_t != param_t && !(param_t == TYPE_DOUBLE && arg_t == TYPE_INT))
             {
                 throw_error(SEMANTIC_ERROR_DATA_TYPE, "Argument type does not match the function's declared parameter type");
             }
