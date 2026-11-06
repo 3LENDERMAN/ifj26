@@ -26,6 +26,8 @@ void semantic_analyze(program *prog)
         throw_error(INTERNAL_ERROR, "Allocation of symtable failed");
     }
 
+    register_builtins(table);
+
     // First pass, register functions and check for main function
     int main_counter = 0;
 
