@@ -526,9 +526,3 @@ static stmt *parse_while_loop(TokenStream *stream)
 
     return statement;
 }
-
-// Placeholder
-static expr *parse_expression(TokenStream *stream)
-{
-    return NULL;
-}
