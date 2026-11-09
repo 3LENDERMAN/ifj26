@@ -67,10 +67,10 @@ static expr *make_binary(op_type op, expr *left, expr *right) {
 static expr *number_from_string(const char *s) {
     expr *e;
     if (strpbrk(s, ".eE") != NULL) {
-        e = mk(EXPR_DOUBLE);
+        e = make(EXPR_DOUBLE);
         e->as.double_val = strtod(s, NULL);
     } else {
-        e = mk(EXPR_INT);
+        e = make(EXPR_INT);
         e->as.int_val = strtoll(s, NULL, 10);
     }
     return e;
