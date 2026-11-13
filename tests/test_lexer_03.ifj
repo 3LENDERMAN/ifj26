@@ -1,0 +1,23 @@
+/* Toto je hlavni blokovy komentar
+   obsahuje /* falesne vnoreny komentar */
+   a pokracuje dal
+*/
+def process_strings(): Unit =
+    // klasicky retezec s escape sekvencemi
+    val a = "tento text obsahuje \n novy radek a \t tabulator a \"uvozovky\""
+    
+    // Viceradkovy retezec
+    val b = """tento text muze byt na vice radku.
+neni potreba resit \n, proste to bere vse.
+"uvozovky" nebo ""dve uvozovky""."""
+
+    var empty_normal = ""
+    var empty_multi = """"""
+
+    /* 
+       Prazdne radky a komentare mezi kodem:
+    */
+    
+    
+    
+    return ()

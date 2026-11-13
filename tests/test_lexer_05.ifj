@@ -1,0 +1,20 @@
+def toxic_test(): Unit =
+    // CHYBA 1: Tabulator na zacatku radku (odkomentuj radek nize pro test)
+//	var x = 5
+
+    // CHYBA 2: Ciselny literal zacinajici nulou
+    // var y = 0512
+
+    // CHYBA 3: Neplatny znak po exponentu
+    // var z = 1.5e+A
+
+    // CHYBA 4: Neuzavreny jednoradkovy retezec (obsahuje \n)
+    // val s = "Tento retezec konci spatne
+    
+    // CHYBA 5: Spatne podtrzitko
+    // var num = 100_
+
+    // CHYBA 6: Neplatna escape sekvence
+    // val str = "Spatne lomitko \x"
+
+    return ()
