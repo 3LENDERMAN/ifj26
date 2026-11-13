@@ -7,6 +7,7 @@
 #ifndef AST_H
 #define AST_H
 
+#include <stdbool.h>
 #include <stddef.h> // size_t
 
 /* Definiton of data types */
@@ -131,6 +132,7 @@ typedef struct {
   int param_count;
   param *params;
   block body;
+  bool is_main;
 } func_def;
 
 typedef struct {
