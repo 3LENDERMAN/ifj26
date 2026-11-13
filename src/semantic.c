@@ -6,13 +6,12 @@
 
 #include "semantic.h"
 #include "symtable.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static void semantic_func(func_def *fn, symtable_stack_t *table);
 static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_ret);
-static void semantic_block(block *blk, symtable_stack_t *table);
+static void semantic_block(block *blk, symtable_stack_t *table, data_type expected_ret);
 static data_type semantic_expr(expr *e, symtable_stack_t *table);
 
 /**
@@ -26,7 +25,7 @@ void semantic_analyze(program *prog)
         throw_error(INTERNAL_ERROR, "Allocation of symtable failed");
     }
 
-    register_builtins(table);
+    symtable_register_builtins(table);
 
     // First pass, register functions and check for main function
     int main_counter = 0;
@@ -52,9 +51,13 @@ void semantic_analyze(program *prog)
             {
                 throw_error(SEMANTIC_ERROR_FUNC_CALL, "Main function cant have parameters");
             }
-            if (fn->ret_type != TYPE_UNIT)
+            if (fn->ret_type != TYPE_UNIT && fn->ret_type != TYPE_UNKNOWN)
             {
                 throw_error(SEMANTIC_ERROR_DATA_TYPE, "Main function must return type Unit");
+            }
+            if (fn->ret_type == TYPE_UNKNOWN)
+            {
+                fn->ret_type = TYPE_UNIT;
             }
         }
     }
@@ -107,7 +110,11 @@ static void semantic_func(func_def *fn, symtable_stack_t *table)
     }
 
     // Check if return type match and check for implicit return type
-    if (fn->ret_type != TYPE_UNIT && fn->ret_type != TYPE_UNKNOWN)
+    if (fn->ret_type == TYPE_UNKNOWN)
+    {
+        fn->ret_type = body_t;
+    }
+    else if (fn->ret_type != TYPE_UNIT)
     {
         if (body_t != fn->ret_type && !(fn->ret_type == TYPE_DOUBLE && body_t == TYPE_INT))
         {
@@ -139,15 +146,22 @@ static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_r
         }
 
         // If the variable has a declared type, check if matches the initialization type
-        if (s->as.decl.declared != TYPE_UNKNOWN && s->as.decl.declared != init_t)
+        data_type target_t = init_t;
+        if (s->as.decl.declared != TYPE_UNKNOWN)
         {
-            throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match the initialization expression");
+            if (s->as.decl.declared != init_t && !(s->as.decl.declared == TYPE_DOUBLE && init_t == TYPE_INT))
+            {
+                throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match the initialization expression");
+            }
+            target_t = s->as.decl.declared;
+        }
+        else
+        {
+            s->as.decl.declared = init_t;
         }
 
-        s->as.decl.declared = init_t;
-
         const bool is_const = (s->type == STMT_VAL);
-        if (!symtable_insert_var(table, s->as.decl.name, init_t, is_const))
+        if (!symtable_insert_var(table, s->as.decl.name, target_t, is_const))
         {
             throw_error(SEMANTIC_ERROR_REDEFINITION, "Variable redefinition");
         }
@@ -157,7 +171,8 @@ static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_r
     case STMT_ASSIGN:
     {
         ht_item_t *var = symtable_lookup_var(table, s->as.assign.name);
-        if (!var)
+
+        if (!var || var->data.kind == SYMBOL_FUNC)
         {
             throw_error(SEMANTIC_ERROR_UNDEFINED, "Undefined variable");
         }
@@ -181,8 +196,8 @@ static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_r
         {
             throw_error(SEMANTIC_ERROR_DATA_TYPE, "'if' condition must be type Bool");
         }
-        semantic_block(&s->as.if_.then_b, table);
-        semantic_block(&s->as.if_.else_b, table);
+        semantic_block(&s->as.if_.then_b, table, expected_ret);
+        semantic_block(&s->as.if_.else_b, table, expected_ret);
         break;
     }
 
@@ -192,7 +207,7 @@ static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_r
         {
             throw_error(SEMANTIC_ERROR_DATA_TYPE, "'while' condition must be type Bool");
         }
-        semantic_block(&s->as.while_.body, table);
+        semantic_block(&s->as.while_.body, table, expected_ret);
         break;
     }
 
@@ -221,13 +236,13 @@ static void semantic_stmt(stmt *s, symtable_stack_t *table, data_type expected_r
 /**
  * Check semantic of the block
  **/
-static void semantic_block(block *blk, symtable_stack_t *table)
+static void semantic_block(block *blk, symtable_stack_t *table, data_type expected_ret)
 {
     // Use new scope for local variables
     symtable_enter_scope(table);
     for (int i = 0; i < blk->count; ++i)
     {
-        semantic_stmt(blk->items[i], table, TYPE_UNKNOWN);
+        semantic_stmt(blk->items[i], table, expected_ret);
     }
     symtable_exit_scope(table);
 }
@@ -239,26 +254,35 @@ static data_type semantic_expr(expr *e, symtable_stack_t *table)
         return TYPE_UNKNOWN;
     }
 
+    data_type result_type = TYPE_UNKNOWN;
+
     switch (e->e_type)
     {
     // Literal values
     case EXPR_INT:
-        return TYPE_INT;
+        result_type = TYPE_INT;
+        break;
     case EXPR_DOUBLE:
-        return TYPE_DOUBLE;
+        result_type = TYPE_DOUBLE;
+        break;
     case EXPR_STRING:
-        return TYPE_STRING;
+        result_type = TYPE_STRING;
+        break;
     case EXPR_UNIT:
-        return TYPE_UNIT;
+        result_type = TYPE_UNIT;
+        break;
 
     case EXPR_VAR:
     {
         ht_item_t *var = symtable_lookup_var(table, e->as.name);
-        if (!var)
+
+        if (!var || var->data.kind == SYMBOL_FUNC)
         {
             throw_error(SEMANTIC_ERROR_UNDEFINED, "Cannot use undeclared variable");
         }
-        return var->data.type;
+
+        result_type = var->data.type;
+        break;
     }
 
     case EXPR_BINARY:
@@ -267,34 +291,60 @@ static data_type semantic_expr(expr *e, symtable_stack_t *table)
         data_type l_t = semantic_expr(e->as.binary.left, table);
         data_type r_t = semantic_expr(e->as.binary.right, table);
 
+        int op = e->as.binary.op;
+
+        bool num = (l_t == TYPE_INT || l_t == TYPE_DOUBLE) && (r_t == TYPE_INT || r_t == TYPE_DOUBLE);
+        bool str = (l_t == TYPE_STRING && r_t == TYPE_STRING);
+
         // Check for comparison operators, which always return Bool
-        if (e->as.binary.op == OP_LT || e->as.binary.op == OP_LE ||
-            e->as.binary.op == OP_GT || e->as.binary.op == OP_GE ||
-            e->as.binary.op == OP_EQ || e->as.binary.op == OP_NE)
+        if (op == OP_LT || op == OP_LE ||
+            op == OP_GT || op == OP_GE ||
+            op == OP_EQ || op == OP_NE)
         {
-            if (l_t == r_t || ((l_t == TYPE_INT && r_t == TYPE_DOUBLE) || (l_t == TYPE_DOUBLE && r_t == TYPE_INT)))
+            if (str || num || l_t == r_t)
             {
-                return TYPE_BOOL;
+                result_type = TYPE_BOOL;
+                break;
             }
             throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match in comparison expression");
         }
-
-        if (l_t == r_t)
+        else if (op == OP_ADD)
         {
-            return l_t;
+            if (str)
+            {
+                result_type = TYPE_STRING;
+                break;
+            }
+            if (num)
+            {
+                result_type = (l_t == TYPE_DOUBLE || r_t == TYPE_DOUBLE) ? TYPE_DOUBLE : TYPE_INT;
+                break;
+            }
         }
-
-        // Allow implicit conversion from Int to Double
-        if ((l_t == TYPE_INT && r_t == TYPE_DOUBLE) || (l_t == TYPE_DOUBLE && r_t == TYPE_INT))
+        else if (op == OP_SUB || op == OP_MUL || op == OP_DIV)
         {
-            return TYPE_DOUBLE;
+            if (num)
+            {
+                result_type = (l_t == TYPE_DOUBLE || r_t == TYPE_DOUBLE) ? TYPE_DOUBLE : TYPE_INT;
+                break;
+            }
         }
 
         throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match in binary expression");
+        break;
     }
 
     case EXPR_UNARY:
-        return semantic_expr(e->as.unary.expr, table);
+    {
+        data_type inner_t = semantic_expr(e->as.unary.expr, table);
+
+        if (inner_t != TYPE_INT && inner_t != TYPE_DOUBLE)
+        {
+            throw_error(SEMANTIC_ERROR_DATA_TYPE, "Unary operator requires numeric operand");
+        }
+        result_type = inner_t;
+        break;
+    }
 
     case EXPR_CALL:
     {
@@ -317,14 +367,19 @@ static data_type semantic_expr(expr *e, symtable_stack_t *table)
 
             if (param_t != TYPE_UNKNOWN && arg_t != param_t && !(param_t == TYPE_DOUBLE && arg_t == TYPE_INT))
             {
-                throw_error(SEMANTIC_ERROR_DATA_TYPE, "Argument type does not match the function's declared parameter type");
+                throw_error(SEMANTIC_ERROR_FUNC_CALL, "Argument type does not match the function's declared parameter type");
             }
         }
 
-        return fn->data.type;
+        result_type = fn->data.type;
+        break;
     }
 
     default:
-        return TYPE_UNKNOWN;
+        result_type = TYPE_UNKNOWN;
+        break;
     }
+
+    e->d_type = result_type;
+    return result_type;
 }
