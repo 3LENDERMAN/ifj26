@@ -105,7 +105,11 @@ static void semantic_func(func_def *fn, symtable_stack_t *table)
         stmt *last = fn->body.items[fn->body.count - 1];
         if (last && last->type == STMT_EXPR)
         {
-            body_t = semantic_expr(last->as.expr.expr, table);
+            body_t = last->as.expr.expr ? last->as.expr.expr->d_type : TYPE_UNIT;
+        }
+        else if (last && last->type == STMT_RETURN)
+        {
+            body_t = last->as.expr.expr ? last->as.expr.expr->d_type : TYPE_UNIT;
         }
     }
 
@@ -113,6 +117,12 @@ static void semantic_func(func_def *fn, symtable_stack_t *table)
     if (fn->ret_type == TYPE_UNKNOWN)
     {
         fn->ret_type = body_t;
+
+        ht_item_t *func = symtable_lookup_func(table, fn->name);
+        if (func)
+        {
+            func->data.type = body_t;
+        }
     }
     else if (fn->ret_type != TYPE_UNIT)
     {
@@ -298,15 +308,23 @@ static data_type semantic_expr(expr *e, symtable_stack_t *table)
 
         // Check for comparison operators, which always return Bool
         if (op == OP_LT || op == OP_LE ||
-            op == OP_GT || op == OP_GE ||
-            op == OP_EQ || op == OP_NE)
+            op == OP_GT || op == OP_GE)
+        {
+            if (str || num)
+            {
+                result_type = TYPE_BOOL;
+                break;
+            }
+            throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match in comparison expression");
+        }
+        else if (op == OP_EQ || op == OP_NE)
         {
             if (str || num || l_t == r_t)
             {
                 result_type = TYPE_BOOL;
                 break;
             }
-            throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match in comparison expression");
+            throw_error(SEMANTIC_ERROR_DATA_TYPE, "Type does not match in equality expression");
         }
         else if (op == OP_ADD)
         {
