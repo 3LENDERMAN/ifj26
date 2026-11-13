@@ -7,13 +7,13 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "ast.h"
+#include "error.h"
+#include "lexer.h"
+#include "token_stream.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include "lexer.h"
-#include "ast.h"
-#include "token_stream.h"
-#include "error.h"
 
 program *parse(TokenStream *ts);
 

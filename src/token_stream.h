@@ -7,9 +7,9 @@
 #ifndef TOKEN_STREAM_H
 #define TOKEN_STREAM_H
 
+#include "lexer.h"
 #include <stddef.h>
 #include <stdio.h>
-#include "lexer.h"
 
 typedef struct TokenStream TokenStream;
 

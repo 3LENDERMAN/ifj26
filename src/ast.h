@@ -7,147 +7,135 @@
 #ifndef AST_H
 #define AST_H
 
-#include <stdbool.h>
+#include <stddef.h> // size_t
 
-/*
-    Definiton of data types
-*/
+/* Definiton of data types */
 typedef enum {
-    // Not known yet, filled in by semantic analysis
-    TYPE_UNKNOWN,
-    TYPE_INT,
-    TYPE_DOUBLE,
-    TYPE_STRING,
-    TYPE_UNIT,
-    TYPE_BOOL
+  TYPE_UNKNOWN,
+  TYPE_INT,
+  TYPE_DOUBLE,
+  TYPE_STRING,
+  TYPE_UNIT,
+  TYPE_BOOL
 } data_type;
 
-/*
-    Definition of expression types
-*/
+/* Definition of expression types */
 typedef enum {
-    EXPR_INT,
-    EXPR_DOUBLE,
-    EXPR_STRING,
-    EXPR_UNIT,
-    EXPR_VAR,
-    EXPR_UNARY,
-    EXPR_BINARY,
-    // Function call
-    EXPR_CALL
+  EXPR_INT,
+  EXPR_DOUBLE,
+  EXPR_STRING,
+  EXPR_UNIT,
+  EXPR_VAR,
+  EXPR_UNARY,
+  EXPR_BINARY,
+  EXPR_CALL
 } expr_type;
 
-/*
-    Definition of operations
-*/
+/* Definition of operations */
 typedef enum {
-    OP_ADD,
-    OP_SUB,
-    OP_MUL,
-    OP_DIV,
-    OP_NEG,
-    OP_LT,
-    OP_LE,
-    OP_GT,
-    OP_GE,
-    OP_EQ,
-    OP_NE
+  OP_ADD,
+  OP_SUB,
+  OP_MUL,
+  OP_DIV,
+  OP_NEG,
+  OP_LT,
+  OP_LE,
+  OP_GT,
+  OP_GE,
+  OP_EQ,
+  OP_NE
 } op_type;
 
-/*
-    Definition of statements
-*/
+/* Definition of statements */
 typedef enum {
-    STMT_VAL,
-    STMT_VAR,
-    STMT_ASSIGN,
-    STMT_EXPR,
-    STMT_RETURN,
-    STMT_IF,
-    STMT_WHILE
+  STMT_VAL,
+  STMT_VAR,
+  STMT_ASSIGN,
+  STMT_EXPR,
+  STMT_RETURN,
+  STMT_IF,
+  STMT_WHILE
 } stmt_type;
 
 typedef struct expr expr;
+typedef struct stmt stmt;
+typedef struct block block;
+
+struct block {
+  stmt **items;
+  int count;
+};
 
 struct expr {
-    expr_type e_type;
-    data_type d_type;
-    int line;
-    union {
-        long long int_val;
-        double double_val;
-        char *str_val;
-        char *name;
-        struct {
-            expr *expr;
-            op_type op;
-        } unary;
-        struct {
-            expr *left;
-            expr *right;
-            op_type op;
-        } binary;
-        struct {
-            expr **args;
-            int argc;
-            char *name;
-        } call;
-    } as;
-
+  expr_type e_type;
+  data_type d_type;
+  int line;
+  union {
+    long long int_val;
+    double double_val;
+    char *str_val;
+    char *name;
+    struct {
+      expr *expr;
+      op_type op;
+    } unary;
+    struct {
+      expr *left;
+      expr *right;
+      op_type op;
+    } binary;
+    struct {
+      expr **args;
+      int argc;
+      char *name;
+    } call;
+  } as;
 };
-
-typedef struct stmt stmt;
 
 struct stmt {
-    stmt_type type;
-    int line;
-    union {
-        struct {
-            char *name;
-            data_type declared;
-            expr *init;
-        } decl;
-        struct {
-            char *name;
-            expr *value;
-        } assign;
-        struct {
-            expr *expr;
-        } expr;
-        struct {
-            expr *cond;
-            block then_b, else_b;
-        } if_;
-        struct {
-            expr *cond;
-            block body;
-        } while_;
-    } as;
+  stmt_type type;
+  int line;
+  union {
+    struct {
+      char *name;
+      data_type declared;
+      expr *init;
+    } decl;
+    struct {
+      char *name;
+      expr *value;
+    } assign;
+    struct {
+      expr *expr;
+    } expr;
+    struct {
+      expr *cond;
+      block then_b, else_b;
+    } if_;
+    struct {
+      expr *cond;
+      block body;
+    } while_;
+  } as;
 };
 
 typedef struct {
-    stmt **items;
-    int count;
-} block;
-
-typedef struct {
-    char *name;
-    data_type type;
+  char *name;
+  data_type type;
 } param;
 
 typedef struct {
-    int line;
-    char *name;
-    data_type ret_type;
-    int param_count;
-    param *params;
-    block body;
-    bool is_main;
+  int line;
+  char *name;
+  data_type ret_type;
+  int param_count;
+  param *params;
+  block body;
 } func_def;
 
 typedef struct {
-    func_def **funcs;
-    int count;
+  func_def **funcs;
+  int count;
 } program;
 
 /* Allocation functions */
