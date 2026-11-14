@@ -406,6 +406,10 @@ Token *get_token(FILE *file) {
 
     case STATE_LINE_COMMENT:
       if (c == '\n') {
+        if (paren_level > 0) {
+            state = STATE_START;
+            continue;
+        }
         is_line_start = true;
         space_count = 0;
         return create_token(TOKEN_NEWLINE, NULL);
@@ -462,10 +466,14 @@ Token *get_token(FILE *file) {
       }
       break;
     case STATE_EXPECT_EOL:
-      if (c == ' ' || c == '\t' ||
-          c == '\r') { // whitespace chars before \n are allowed
+      // whitespace chars before \n are allowed
+      if (c == ' ' || c == '\t' || c == '\r') {
         continue;
       } else if (c == '\n') { // end of line
+        if (paren_level > 0) {
+            state = STATE_START;
+            continue;
+        }
         is_line_start = true;
         space_count = 0;
         return create_token(TOKEN_NEWLINE, NULL);
@@ -524,6 +532,8 @@ Token *get_token(FILE *file) {
         dstring_append_char(&attribute_str, c);
         state = STATE_NUM_E;
       } else if (c == 'd' || c == 'D') {
+        dstring_append_char(&attribute_str, '.');
+        dstring_append_char(&attribute_str, '0');
         state = STATE_NUM_D;
       } else if (c == '_') {
         if (left_side_zero) {
