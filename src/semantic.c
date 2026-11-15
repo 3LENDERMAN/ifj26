@@ -91,8 +91,12 @@ static void semantic_func(func_def *fn, symtable_stack_t *table) {
   // Deduce return type from the last statement if its expression, else it must
   // be Unit
   data_type body_t = TYPE_UNIT;
+  bool ends_with_flow = false;
   if (fn->body.count > 0) {
     stmt *last = fn->body.items[fn->body.count - 1];
+    if(last && (last->type == STMT_IF || last->type == STMT_WHILE)) {
+      ends_with_flow = true;
+    }
     if (last && last->type == STMT_EXPR) {
       body_t = last->as.expr.expr ? last->as.expr.expr->d_type : TYPE_UNIT;
     } else if (last && last->type == STMT_RETURN) {
@@ -108,7 +112,7 @@ static void semantic_func(func_def *fn, symtable_stack_t *table) {
     if (func) {
       func->data.type = body_t;
     }
-  } else if (fn->ret_type != TYPE_UNIT) {
+  } else if (fn->ret_type != TYPE_UNIT && !ends_with_flow) {
     if (body_t != fn->ret_type &&
         !(fn->ret_type == TYPE_DOUBLE && body_t == TYPE_INT)) {
       throw_error(SEMANTIC_ERROR_DATA_TYPE,
