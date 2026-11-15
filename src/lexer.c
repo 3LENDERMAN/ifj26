@@ -407,8 +407,8 @@ Token *get_token(FILE *file) {
     case STATE_LINE_COMMENT:
       if (c == '\n') {
         if (paren_level > 0) {
-            state = STATE_START;
-            continue;
+          state = STATE_START;
+          continue;
         }
         is_line_start = true;
         space_count = 0;
@@ -471,8 +471,8 @@ Token *get_token(FILE *file) {
         continue;
       } else if (c == '\n') { // end of line
         if (paren_level > 0) {
-            state = STATE_START;
-            continue;
+          state = STATE_START;
+          continue;
         }
         is_line_start = true;
         space_count = 0;
