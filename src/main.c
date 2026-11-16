@@ -1,14 +1,18 @@
 /**
  * IFJ26 Compiler - main.c
  * Author: Jakub Holub (xholubj00)
- * Date: 30.10.2026
+ * Date: 16.11.2026
  **/
 
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
-// #include "parser.h"      // later..
-// #include "symtable.h"    // later..
+#include "parser.h"      
+#include "symtable.h"    
+#include "lexer.h"
+#include "generator.h"
+#include "semantic.h"
+#include "token_stream.h"
 
 int main(int argc, char **argv) {
   // Set input (stdin or file)
@@ -16,17 +20,24 @@ int main(int argc, char **argv) {
   if (argc > 1) {
     input = fopen(argv[1], "r");
     if (input == NULL) {
-      fprintf(stderr, "Error: cannot open file %s\n", argv[1]);
-      return 1;
+      throw_error(INTERNAL_ERROR, "Could not open input file");
     }
   }
 
-  // TODO: init of compiler, call parser
+  TokenStream *ts = ts_create(input);
+  program *prog = parse(ts);
+  ts_destroy(ts);
 
   if (input != stdin) {
     fclose(input);
   }
 
+  if (!prog) {
+    throw_error(SYNTAX_ERROR, "Parser returned empty AST");
+  }
+  semantic_analyze(prog);
+  generate_code(prog);
+  ast_free_program(prog);
   // cleanup dynamic memory allocation
   cleanup_garbage();
 
