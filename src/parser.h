@@ -18,5 +18,6 @@
 program *parse(TokenStream *ts);
 
 expr *parse_expression(TokenStream *ts);
+expr *parse_value(TokenStream *stream);
 
 #endif
