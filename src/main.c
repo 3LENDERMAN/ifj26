@@ -5,14 +5,14 @@
  **/
 
 #include "error.h"
+#include "generator.h"
+#include "lexer.h"
+#include "parser.h"
+#include "semantic.h"
+#include "symtable.h"
+#include "token_stream.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "parser.h"      
-#include "symtable.h"    
-#include "lexer.h"
-#include "generator.h"
-#include "semantic.h"
-#include "token_stream.h"
 
 int main(int argc, char **argv) {
   // Set input (stdin or file)

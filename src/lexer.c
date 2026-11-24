@@ -17,11 +17,37 @@
 static int paren_level = 0;       // current level inside ()
 static bool is_line_start = true; // is start of logival row
 static int space_count = 0;
+static int bracket_level = 0; // nesting inside []
 
 // Stack for storing indentations
 static int indent_stack[50] = {0}; // max 50 levels of indentation
 static int indent_top = 0;
 static int pending_indents = 0;
+
+// queue for delayed tokens (INTERPOLATEDS, VALMEM)
+static Token *pending_queue[8];
+static int pending_head = 0;
+static int pending_tail = 0;
+
+static void enqueue_token(Token *tok) {
+  if (pending_tail < 8) {
+    pending_queue[pending_tail++] = tok;
+  }
+}
+
+// context for interpolation strings
+typedef struct {
+  bool is_multiline;
+  bool in_expr;
+  int brace_depth;
+} interp_ctx_t;
+
+static interp_ctx_t interp_stack[16];
+static int interp_top = -1;
+
+static bool in_interp_expr(void) {
+  return interp_top >= 0 && interp_stack[interp_top].in_expr;
+}
 
 /**
  * Create and initialize token
@@ -55,10 +81,8 @@ Token *create_token(token_type type, dyn_string_t *str) {
 token_type resolve_identifier(dyn_string_t *str) {
   const char *clear_str = str->str;
 
-  if (strcmp(clear_str, "_") == 0) { // Later allow for EXTENSION
-    dstring_free(str);
-    throw_error(LEXER_ERROR, "Invalid identifier '_'");
-  }
+  if (strcmp(clear_str, "_") == 0)
+    return TOKEN_UNDERSCORE;
   if (strcmp(clear_str, "if") == 0)
     return TOKEN_KW_IF;
   if (strcmp(clear_str, "else") == 0)
@@ -91,6 +115,10 @@ token_type resolve_identifier(dyn_string_t *str) {
   // Optional key words for extensions
   if (strcmp(clear_str, "Boolean") == 0)
     return TOKEN_KW_BOOLEAN;
+  if (strcmp(clear_str, "true") == 0)
+    return TOKEN_KW_TRUE;
+  if (strcmp(clear_str, "false") == 0)
+    return TOKEN_KW_FALSE;
   if (strcmp(clear_str, "case") == 0)
     return TOKEN_KW_CASE;
   if (strcmp(clear_str, "class") == 0)
@@ -111,13 +139,172 @@ token_type resolve_identifier(dyn_string_t *str) {
 }
 
 /**
+ * Helper function for reading interpolated string (ext. INTERPOLATEDS)
+ */
+static Token *lex_interp_chunk(FILE *file) {
+  bool multi = interp_stack[interp_top].is_multiline;
+  dyn_string_t text;
+  if (!dstring_init(&text)) {
+    throw_error(INTERNAL_ERROR, "Failed to allocate memory for dynamic string");
+  }
+
+  while (1) {
+    int c = fgetc(file);
+
+    if (c == EOF) {
+      dstring_free(&text);
+      throw_error(LEXER_ERROR, "Unterminated interpolated string literal");
+    }
+    if (!multi && c == '\n') {
+      dstring_free(&text);
+      throw_error(LEXER_ERROR, "Newline in single-line interpolated string");
+    }
+
+    // end of string: " or """
+    if (c == '"') {
+      if (!multi) {
+        interp_top--;
+        if (text.length > 0) {
+          enqueue_token(create_token(TOKEN_INTERP_END, NULL));
+          return create_token(TOKEN_STR_LITERAL, &text);
+        }
+        dstring_free(&text);
+        return create_token(TOKEN_INTERP_END, NULL);
+      } else {
+        int c2 = fgetc(file);
+        if (c2 == '"') {
+          int c3 = fgetc(file);
+          if (c3 == '"') {
+            interp_top--;
+            if (text.length > 0) {
+              enqueue_token(create_token(TOKEN_INTERP_END, NULL));
+              return create_token(TOKEN_STR_LITERAL, &text);
+            }
+            dstring_free(&text);
+            return create_token(TOKEN_INTERP_END, NULL);
+          }
+          dstring_append_char(&text, '"');
+          dstring_append_char(&text, '"');
+          if (c3 == EOF) {
+            dstring_free(&text);
+            throw_error(LEXER_ERROR,
+                        "Unterminated multiline interpolated string");
+          }
+          ungetc(c3, file);
+        } else {
+          dstring_append_char(&text, '"');
+          if (c2 == EOF) {
+            dstring_free(&text);
+            throw_error(LEXER_ERROR,
+                        "Unterminated multiline interpolated string");
+          }
+          ungetc(c2, file);
+        }
+        continue;
+      }
+    }
+
+    // escape sequence in oneline interpolated string
+    if (!multi && c == '\\') {
+      int esc = fgetc(file);
+      if (esc == '"')
+        dstring_append_char(&text, '"');
+      else if (esc == 'n')
+        dstring_append_char(&text, '\n');
+      else if (esc == 'r')
+        dstring_append_char(&text, '\r');
+      else if (esc == 't')
+        dstring_append_char(&text, '\t');
+      else if (esc == '\\')
+        dstring_append_char(&text, '\\');
+      else {
+        dstring_free(&text);
+        throw_error(LEXER_ERROR,
+                    "Invalid escape sequence in interpolated string");
+      }
+      continue;
+    }
+
+    // Interpolation: $$, ${expr}, $id
+    if (c == '$') {
+      int next = fgetc(file);
+      if (next == '$') {
+        dstring_append_char(&text, '$');
+        continue;
+      }
+      if (next == '{') {
+        interp_stack[interp_top].in_expr = true;
+        interp_stack[interp_top].brace_depth = 1;
+        if (text.length > 0) {
+          enqueue_token(create_token(TOKEN_INTERP_EXPR_START, NULL));
+          return create_token(TOKEN_STR_LITERAL, &text);
+        }
+        dstring_free(&text);
+        return create_token(TOKEN_INTERP_EXPR_START, NULL);
+      }
+      if (isalpha(next) || next == '_') {
+        dyn_string_t id_str;
+        if (!dstring_init(&id_str)) {
+          dstring_free(&text);
+          throw_error(INTERNAL_ERROR,
+                      "Failed to allocate memory for dynamic string");
+        }
+        dstring_append_char(&id_str, (char)next);
+        int ch;
+        while ((ch = fgetc(file)) != EOF && (isalnum(ch) || ch == '_')) {
+          dstring_append_char(&id_str, (char)ch);
+        }
+        if (ch != EOF) {
+          ungetc(ch, file);
+        }
+        if (strcmp(id_str.str, "_") == 0) {
+          dstring_free(&id_str);
+          dstring_free(&text);
+          throw_error(LEXER_ERROR,
+                      "Invalid identifier '_' in string interpolation");
+        }
+
+        Token *id_tok = create_token(TOKEN_IDENTIFIER, &id_str);
+        if (text.length > 0) {
+          enqueue_token(create_token(TOKEN_INTERP_EXPR_START, NULL));
+          enqueue_token(id_tok);
+          enqueue_token(create_token(TOKEN_INTERP_EXPR_END, NULL));
+          return create_token(TOKEN_STR_LITERAL, &text);
+        }
+        dstring_free(&text);
+        enqueue_token(id_tok);
+        enqueue_token(create_token(TOKEN_INTERP_EXPR_END, NULL));
+        return create_token(TOKEN_INTERP_EXPR_START, NULL);
+      }
+
+      dstring_free(&text);
+      throw_error(LEXER_ERROR, "Invalid '$' sequence in interpolated string");
+    }
+
+    dstring_append_char(&text, (char)c);
+  }
+}
+
+/**
  *
  **/
 Token *get_token(FILE *file) {
+  if (pending_head < pending_tail) {
+    Token *t = pending_queue[pending_head++];
+    if (pending_head == pending_tail) {
+      pending_head = 0;
+      pending_tail = 0;
+    }
+    return t;
+  }
   // Check if all tokens for current indentation were sent
   if (pending_indents > 0) {
     pending_indents--;
     return create_token(TOKEN_INDENT_END, NULL);
+  }
+
+  if (interp_top >= 0 && !interp_stack[interp_top].in_expr) {
+    return lex_interp_chunk(file);
   }
 
   // Define all states in FSM
@@ -127,6 +314,9 @@ Token *get_token(FILE *file) {
     STATE_GREATER, // >
     STATE_ASSIGN,  // =
     STATE_NOT,     // !
+    STATE_AND,     // &
+    STATE_OR,      // |
+    STATE_PLUS,    // +
 
     // States for comments, division
     STATE_SLASH,               // /
@@ -240,7 +430,7 @@ Token *get_token(FILE *file) {
       }
       // Check for one character tokens
       if (c == '\n') {
-        if (paren_level > 0) {
+        if (paren_level > 0 || in_interp_expr() || bracket_level > 0) {
           continue;
         }
         is_line_start = true;
@@ -272,8 +462,6 @@ Token *get_token(FILE *file) {
         return create_token(TOKEN_SEMICOLON, NULL);
       if (c == '*')
         return create_token(TOKEN_ASTERISK, NULL);
-      if (c == '+')
-        return create_token(TOKEN_PLUS, NULL);
       if (c == '-')
         return create_token(TOKEN_MINUS, NULL);
       if (c == ',')
@@ -305,6 +493,47 @@ Token *get_token(FILE *file) {
       if (c == '!') {
         state = STATE_NOT;
         continue;
+      }
+      if (c == '&') {
+        state = STATE_AND;
+        continue;
+      }
+      if (c == '|') {
+        state = STATE_OR;
+        continue;
+      }
+      if (c == '+') {
+        state = STATE_PLUS;
+        continue;
+      }
+      if (c == '[') {
+        bracket_level++;
+        return create_token(TOKEN_LEFT_BRACKET, NULL);
+      }
+      if (c == ']') {
+        if (bracket_level > 0) {
+          bracket_level--;
+        }
+        return create_token(TOKEN_RIGHT_BRACKET, NULL);
+      }
+      // Extension INTERPOLATEDS
+      if (c == '{') {
+        if (in_interp_expr()) {
+          interp_stack[interp_top].brace_depth++;
+          continue;
+        }
+        throw_error(LEXER_ERROR, "Unexpected '{'");
+      }
+      if (c == '}') {
+        if (in_interp_expr()) {
+          interp_stack[interp_top].brace_depth--;
+          if (interp_stack[interp_top].brace_depth == 0) {
+            interp_stack[interp_top].in_expr = false;
+            return create_token(TOKEN_INTERP_EXPR_END, NULL);
+          }
+          continue;
+        }
+        throw_error(LEXER_ERROR, "Unexpected '}'");
       }
 
       // Comments
@@ -358,6 +587,8 @@ Token *get_token(FILE *file) {
     case STATE_LESS:
       if (c == '=') { // <=
         return create_token(TOKEN_LESS_EQ, NULL);
+      } else if (c == '-') {
+        return create_token(TOKEN_LEFT_ARROW, NULL);
       } else { // <
         ungetc(c, file);
         return create_token(TOKEN_LESS, NULL);
@@ -374,6 +605,8 @@ Token *get_token(FILE *file) {
     case STATE_ASSIGN:
       if (c == '=') { // ==
         return create_token(TOKEN_EQ, NULL);
+      } else if (c == '>') { // case and lambdas ext.
+        return create_token(TOKEN_ARROW, NULL);
       } else { // =
         ungetc(c, file);
         return create_token(TOKEN_ASSIGN, NULL);
@@ -383,9 +616,32 @@ Token *get_token(FILE *file) {
       if (c == '=') { // !=
         return create_token(TOKEN_NOT_EQ, NULL);
       } else { // ! (unary negation)
-        throw_error(
-            LEXER_ERROR,
-            "Expected '=' after '!'"); // REVISIT LATER FOR BOOLTHEN EXTENSION
+        ungetc(c, file);
+        return create_token(TOKEN_NOT, NULL);
+      }
+      break;
+    case STATE_AND:
+      if (c == '&') { // &&
+        return create_token(TOKEN_AND, NULL);
+      } else {
+        throw_error(LEXER_ERROR, "Expected '&' after '&'");
+      }
+      break;
+    case STATE_OR:
+      if (c == '|') { // ||
+        return create_token(TOKEN_OR, NULL);
+      } else { // | (union of types in ALGEBDT)
+        ungetc(c, file);
+        return create_token(TOKEN_PIPE, NULL);
+      }
+      break;
+
+    case STATE_PLUS:
+      if (c == '+') { // ++ (chaining in LISTS ext.)
+        return create_token(TOKEN_PLUS_PLUS, NULL);
+      } else { // +
+        ungetc(c, file);
+        return create_token(TOKEN_PLUS, NULL);
       }
       break;
 
@@ -406,7 +662,7 @@ Token *get_token(FILE *file) {
 
     case STATE_LINE_COMMENT:
       if (c == '\n') {
-        if (paren_level > 0) {
+        if (paren_level > 0 || in_interp_expr() || bracket_level > 0) {
           state = STATE_START;
           continue;
         }
@@ -470,7 +726,7 @@ Token *get_token(FILE *file) {
       if (c == ' ' || c == '\t' || c == '\r') {
         continue;
       } else if (c == '\n') { // end of line
-        if (paren_level > 0) {
+        if (paren_level > 0 || in_interp_expr() || bracket_level > 0) {
           state = STATE_START;
           continue;
         }
@@ -492,6 +748,31 @@ Token *get_token(FILE *file) {
       if (isalnum(c) || c == '_') {
         dstring_append_char(&attribute_str, c);
       } else {
+        // INTERPOLATEDS - catch "s prefix
+        if (c == '"' && strcmp(attribute_str.str, "s") == 0) {
+          dstring_free(&attribute_str);
+          if (interp_top + 1 >= 16) {
+            throw_error(INTERNAL_ERROR, "Interpolated string nesting too deep");
+          }
+          int c2 = fgetc(file);
+          if (c2 == '"') {
+            int c3 = fgetc(file);
+            if (c3 == '"') {
+              interp_stack[++interp_top] = (interp_ctx_t){true, false, 0};
+              return create_token(TOKEN_INTERP_START, NULL);
+            }
+            if (c3 != EOF)
+              ungetc(c3, file);
+            // empty interpolated string s""
+            dyn_string_t empty;
+            dstring_init(&empty);
+            return create_token(TOKEN_STR_LITERAL, &empty);
+          }
+          if (c2 != EOF)
+            ungetc(c2, file);
+          interp_stack[++interp_top] = (interp_ctx_t){false, false, 0};
+          return create_token(TOKEN_INTERP_START, NULL);
+        }
         ungetc(c, file);
 
         // Here the identifier is complete - resolve it into token
@@ -526,8 +807,20 @@ Token *get_token(FILE *file) {
         }
         dstring_append_char(&attribute_str, c);
       } else if (c == '.') {
-        dstring_append_char(&attribute_str, c);
-        state = STATE_NUM_DOT;
+        int next_c = fgetc(file);
+        if (isdigit(next_c)) {
+          dstring_append_char(&attribute_str, '.');
+          dstring_append_char(&attribute_str, (char)next_c);
+          state = STATE_NUM_DECIMAL;
+        } else if (isalpha(next_c) || next_c == '_') {
+          // toString -> returns 5 and appends '.' to queue
+          ungetc(next_c, file);
+          enqueue_token(create_token(TOKEN_DOT, NULL));
+          return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+        } else {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Wrong character after decimal point");
+        }
       } else if (c == 'e' || c == 'E') {
         dstring_append_char(&attribute_str, c);
         state = STATE_NUM_E;

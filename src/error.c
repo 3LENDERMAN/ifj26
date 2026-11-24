@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdnoreturn.h>
 
-#define GB_COLLECT_CAPACITY 5000
+#define GB_COLLECT_CAPACITY 20000
 
 static void *gb_collector_arr[GB_COLLECT_CAPACITY];
 static int gb_collector_count = 0;

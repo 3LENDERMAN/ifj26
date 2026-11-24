@@ -20,6 +20,9 @@ typedef enum {
   TOKEN_GREATER_EQ,  // >=
   TOKEN_EQ,          // ==
   TOKEN_NOT_EQ,      // !=
+  TOKEN_NOT,         // !
+  TOKEN_AND,         // &&
+  TOKEN_OR,          // ||
   TOKEN_DOT,         // .
   TOKEN_DIV,         // /
   TOKEN_ASTERISK,    // *
@@ -31,6 +34,11 @@ typedef enum {
   TOKEN_AT,          // @
   TOKEN_COLON,       // :
   TOKEN_SEMICOLON,   // ;
+
+  // extension LISTS
+  TOKEN_LEFT_BRACKET,  // [
+  TOKEN_RIGHT_BRACKET, // ]
+  TOKEN_PLUS_PLUS,     // ++
 
   // Keywords:
   TOKEN_KW_IF,
@@ -50,6 +58,8 @@ typedef enum {
 
   // Other keywords for extensions..
   TOKEN_KW_BOOLEAN,
+  TOKEN_KW_TRUE,
+  TOKEN_KW_FALSE,
   TOKEN_KW_CASE,
   TOKEN_KW_CLASS,
   TOKEN_KW_EXTENSION,
@@ -57,6 +67,18 @@ typedef enum {
   TOKEN_KW_LIST,
   TOKEN_KW_MATCH,
   TOKEN_KW_TYPE,
+
+  // ops and symbols for extensions CONTROL, ALGEBDT, LAMBDAS
+  TOKEN_LEFT_ARROW, // <-  (CONTROL: for i <- ...)
+  TOKEN_ARROW,      // =>  (ALGEBDT: case ... =>, LAMBDAS: (x: Int) =>)
+  TOKEN_PIPE,       // |   (ALGEBDT: Int | Double)
+  TOKEN_UNDERSCORE, // _   (ALGEBDT: case _ =>)
+
+  // strings for extension INTERPOLATEDS
+  TOKEN_INTERP_START,      // begin with: s" , s"""
+  TOKEN_INTERP_EXPR_START, // begin with: $id , ${
+  TOKEN_INTERP_EXPR_END,   // end with: $id , }
+  TOKEN_INTERP_END,        // end with: " , """
 
   // Identifier is made of Alphabet letters, numbers, _ (has to be more than 1)
   TOKEN_IDENTIFIER,

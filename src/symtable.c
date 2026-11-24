@@ -13,6 +13,101 @@
 #define INITIAL_STACK_CAPACITY 8
 #define LIMIT_TO_RESIZE 0.75 // resizing threshold
 
+//// helper functions for managing type_info
+
+type_info *symtable_type_primitive(data_type kind) {
+  type_info *t = ast_xcalloc(1, sizeof(type_info));
+  t->kind = kind;
+  return t;
+}
+
+type_info *symtable_type_clone(const type_info *t) {
+  if (t == NULL) {
+    return NULL;
+  }
+
+  type_info *copy = ast_xcalloc(1, sizeof(type_info));
+  copy->kind = t->kind;
+
+  switch (t->kind) {
+  case TYPE_CASE_CLASS:
+    if (t->as.class_name != NULL) {
+      copy->as.class_name = ast_xstrdup(t->as.class_name);
+    }
+    break;
+
+  case TYPE_UNION:
+    copy->as.union_t.count = t->as.union_t.count;
+    if (t->as.union_t.count > 0 && t->as.union_t.members != NULL) {
+      copy->as.union_t.members =
+          ast_xcalloc((size_t)t->as.union_t.count, sizeof(type_info *));
+      for (int i = 0; i < t->as.union_t.count; i++) {
+        copy->as.union_t.members[i] =
+            symtable_type_clone(t->as.union_t.members[i]);
+      }
+    }
+    break;
+
+  case TYPE_FUNC:
+    copy->as.func_t.param_count = t->as.func_t.param_count;
+    if (t->as.func_t.param_count > 0 && t->as.func_t.param_types != NULL) {
+      copy->as.func_t.param_types =
+          ast_xcalloc((size_t)t->as.func_t.param_count, sizeof(type_info *));
+      for (int i = 0; i < t->as.func_t.param_count; i++) {
+        copy->as.func_t.param_types[i] =
+            symtable_type_clone(t->as.func_t.param_types[i]);
+      }
+    }
+    copy->as.func_t.ret_type = symtable_type_clone(t->as.func_t.ret_type);
+    break;
+
+  case TYPE_LIST:
+    copy->as.elem_type = symtable_type_clone(t->as.elem_type);
+    break;
+
+  default:
+    break;
+  }
+
+  return copy;
+}
+
+void symtable_type_free(type_info *t) {
+  if (t == NULL) {
+    return;
+  }
+
+  switch (t->kind) {
+  case TYPE_CASE_CLASS:
+    free(t->as.class_name);
+    break;
+
+  case TYPE_UNION:
+    for (int i = 0; i < t->as.union_t.count; i++) {
+      symtable_type_free(t->as.union_t.members[i]);
+    }
+    free(t->as.union_t.members);
+    break;
+
+  case TYPE_FUNC:
+    for (int i = 0; i < t->as.func_t.param_count; i++) {
+      symtable_type_free(t->as.func_t.param_types[i]);
+    }
+    free(t->as.func_t.param_types);
+    symtable_type_free(t->as.func_t.ret_type);
+    break;
+
+  case TYPE_LIST:
+    symtable_type_free(t->as.elem_type);
+    break;
+
+  default:
+    break;
+  }
+
+  free(t);
+}
+
 //// Hash table internal private functions:
 
 /**
@@ -32,6 +127,7 @@ static symtable_t *table_init(int capacity) {
 
   table->capacity = capacity;
   table->size = 0;
+  table->is_isolated = false;
   return table;
 }
 
@@ -46,12 +142,24 @@ static void table_free(symtable_t *table) {
     if (table->items[i].is_occupied) {
       free(table->items[i].key); // free key duplicate
 
-      // If the symbol is a function, it has dynamically allocated array of
-      // parameter types
-      if (table->items[i].data.kind == SYMBOL_FUNC &&
-          table->items[i].data.param_types != NULL) {
-        free(table->items[i].data.param_types);
+      symbol_data_t *d = &table->items[i].data;
+      symtable_type_free(d->full_type);
+
+      if (d->param_names != NULL) {
+        for (int j = 0; j < d->param_count; j++) {
+          free(d->param_names[j]);
+        }
+        free(d->param_names);
       }
+
+      if (d->param_full_types != NULL) {
+        for (int j = 0; j < d->param_count; j++) {
+          symtable_type_free(d->param_full_types[j]);
+        }
+        free(d->param_full_types);
+      }
+
+      free(d->param_types);
     }
   }
   free(table->items);
@@ -68,7 +176,7 @@ static unsigned long hash_function(const char *str) {
   // loop through every char of string until char '\0'
   while ((c = *str++)) {
     // hash * 33 + c
-    hash = ((hash << 5) + hash) + c;
+    hash = ((hash << 5) + hash) + (unsigned long)c;
   }
   return hash;
 }
@@ -96,10 +204,11 @@ static bool table_resize(symtable_t *table) {
   for (int i = 0; i < old_capacity; i++) {
     if (old_items[i].is_occupied && !old_items[i].is_deleted) {
       // find new slot
-      unsigned long index = hash_function(old_items[i].key) %
-                            new_capacity; // new index for old element
+      unsigned long index =
+          hash_function(old_items[i].key) %
+          (unsigned long)new_capacity; // new index for old element
       while (table->items[index].is_occupied) {
-        index = (index + 1) % new_capacity; // find empty spot
+        index = (index + 1) % (unsigned long)new_capacity; // find empty spot
       }
 
       // move item to the new slot
@@ -115,7 +224,7 @@ static bool table_resize(symtable_t *table) {
  * Internal static find function for a single table using linear search
  */
 static ht_item_t *table_find(symtable_t *table, const char *key) {
-  unsigned long index = hash_function(key) % table->capacity;
+  unsigned long index = hash_function(key) % (unsigned long)table->capacity;
   int start_index = (int)index;
 
   // keep looping if element is occupied or deleted
@@ -125,7 +234,8 @@ static ht_item_t *table_find(symtable_t *table, const char *key) {
         strcmp(table->items[index].key, key) == 0) {
       return &table->items[index];
     }
-    index = (index + 1) % table->capacity; // move to next element
+    index =
+        (index + 1) % (unsigned long)table->capacity; // move to next element
 
     // safety break if we searched the whole table - it should not happen
     if ((int)index == start_index) {
@@ -133,6 +243,32 @@ static ht_item_t *table_find(symtable_t *table, const char *key) {
     }
   }
   return NULL; // key doesnt exit..
+}
+
+// finds empty slot for insert and resizes table
+static ht_item_t *table_alloc_slot(symtable_t *table, const char *key) {
+  if (table_find(table, key) != NULL) {
+    return NULL; // collision/redefinition
+  }
+
+  if ((float)table->size / (float)table->capacity >= LIMIT_TO_RESIZE) {
+    if (!table_resize(table)) {
+      return NULL;
+    }
+  }
+
+  unsigned long index = hash_function(key) % (unsigned long)table->capacity;
+  while (table->items[index].is_occupied && !table->items[index].is_deleted) {
+    index = (index + 1) % (unsigned long)table->capacity;
+  }
+
+  ht_item_t *slot = &table->items[index];
+  memset(slot, 0, sizeof(ht_item_t));
+  slot->key = ast_xstrdup(key);
+  slot->is_occupied = true;
+  slot->is_deleted = false;
+  table->size++;
+  return slot;
 }
 
 //// Public functions for semantic analyser
@@ -197,9 +333,11 @@ void symtable_enter_scope(symtable_stack_t *stack) {
 
   // if stack is full -> double its capacity
   if (stack->top + 1 >= stack->capacity) {
-    stack->capacity *= 2;
-    stack->tables =
-        realloc(stack->tables, stack->capacity * sizeof(symtable_t *));
+    int new_cap = stack->capacity * 2;
+    symtable_t **new_tables =
+        ast_xrealloc(stack->tables, (size_t)new_cap * sizeof(symtable_t *));
+    stack->tables = new_tables;
+    stack->capacity = new_cap;
   }
 
   // create new symbol table for the new scope
@@ -208,6 +346,16 @@ void symtable_enter_scope(symtable_stack_t *stack) {
   // push it to the top of the stack
   stack->top++;
   stack->tables[stack->top] = new_table;
+}
+/**
+ * opens isolated scope for lambda func (LAMBDAS):
+ * brání přístupu k lokálním proměnným vnějších funkcí (zákaz uzávěrů).
+ */
+void symtable_enter_lambda_scope(symtable_stack_t *stack) {
+  symtable_enter_scope(stack);
+  if (stack != NULL && stack->top > 0 && stack->tables[stack->top] != NULL) {
+    stack->tables[stack->top]->is_isolated = true;
+  }
 }
 
 /**
@@ -232,39 +380,29 @@ void symtable_exit_scope(symtable_stack_t *stack) {
  * of stack It uses linear search for placement, returns false if the name is
  * already declared in this scope
  */
-bool symtable_insert_var(symtable_stack_t *stack, const char *name,
-                         data_type type, bool is_const) {
-  symtable_t *current_table = stack->tables[stack->top];
-  if (table_find(current_table, name) != NULL) {
+bool symtable_insert_var_typed(symtable_stack_t *stack, const char *name,
+                               data_type type, const type_info *full_type,
+                               bool is_const) {
+  if (stack == NULL || stack->top < 0) {
     return false;
   }
 
-  // resize if table is getting full
-  if ((float)current_table->size / current_table->capacity >= LIMIT_TO_RESIZE) {
-    table_resize(current_table);
+  ht_item_t *slot = table_alloc_slot(stack->tables[stack->top], name);
+  if (slot == NULL) {
+    return false;
   }
 
-  // find next empty element using linear search
-  unsigned long index = hash_function(name) % current_table->capacity;
-  while (current_table->items[index].is_occupied &&
-         !current_table->items[index].is_deleted) {
-    index = (index + 1) % current_table->capacity;
-  }
-
-  // Insert the new variable
-  current_table->items[index].key =
-      ast_xstrdup(name); // Duplicate string into heap
-  current_table->items[index].is_occupied = true;
-  current_table->items[index].is_deleted = false;
-
-  current_table->items[index].data.kind = is_const ? SYMBOL_VAL : SYMBOL_VAR;
-  current_table->items[index].data.type = type;
-  current_table->items[index].data.is_initialized = true;
-  current_table->items[index].data.param_count = 0;
-  current_table->items[index].data.param_types = NULL;
-
-  current_table->size++;
+  slot->data.kind = is_const ? SYMBOL_VAL : SYMBOL_VAR;
+  slot->data.type = (full_type != NULL) ? full_type->kind : type;
+  slot->data.full_type = (full_type != NULL) ? symtable_type_clone(full_type)
+                                             : symtable_type_primitive(type);
+  slot->data.is_initialized = true;
   return true;
+}
+
+bool symtable_insert_var(symtable_stack_t *stack, const char *name,
+                         data_type type, bool is_const) {
+  return symtable_insert_var_typed(stack, name, type, NULL, is_const);
 }
 
 /**
@@ -272,63 +410,141 @@ bool symtable_insert_var(symtable_stack_t *stack, const char *name,
  * stack dynamically allocates memory for parameter types,returns false if the
  * function is already defined
  */
-bool symtable_insert_func(symtable_stack_t *stack, const char *name,
-                          data_type ret_type, int param_count, param *params) {
-  // Functions ALWAYS go to the global scope (index 0)
-  symtable_t *global_table = stack->tables[0];
-
-  if (table_find(global_table, name) != NULL) {
-    return false; // function already exists
+bool symtable_insert_func_typed(symtable_stack_t *stack, const char *name,
+                                data_type ret_type,
+                                const type_info *ret_full_type, int param_count,
+                                param *params) {
+  if (stack == NULL) {
+    return false;
   }
 
-  // resize if table is getting full
-  if ((float)global_table->size / global_table->capacity >= LIMIT_TO_RESIZE) {
-    table_resize(global_table);
+  // function always belongs to global table (index 0)
+  ht_item_t *slot = table_alloc_slot(stack->tables[0], name);
+  if (slot == NULL) {
+    return false;
   }
 
-  // find next empty element using linear search
-  unsigned long index = hash_function(name) % global_table->capacity;
-  while (global_table->items[index].is_occupied &&
-         !global_table->items[index].is_deleted) {
-    index = (index + 1) % global_table->capacity;
-  }
+  slot->data.kind = SYMBOL_FUNC;
+  slot->data.type = (ret_full_type != NULL) ? ret_full_type->kind : ret_type;
+  slot->data.full_type = (ret_full_type != NULL)
+                             ? symtable_type_clone(ret_full_type)
+                             : symtable_type_primitive(ret_type);
+  slot->data.param_count = param_count;
 
-  // Insert the new function
-  global_table->items[index].key =
-      ast_xstrdup(name); // Duplicate string into heap
-  global_table->items[index].is_occupied = true;
-  global_table->items[index].is_deleted = false;
-
-  global_table->items[index].data.kind = SYMBOL_FUNC;
-  global_table->items[index].data.type = ret_type;
-  global_table->items[index].data.param_count = param_count;
-
-  // allocate memory for array for parameter types and copy them
   if (param_count > 0 && params != NULL) {
-    global_table->items[index].data.param_types =
-        malloc(param_count * sizeof(data_type));
+    slot->data.param_types =
+        ast_xcalloc((size_t)param_count, sizeof(data_type));
+    slot->data.param_full_types =
+        ast_xcalloc((size_t)param_count, sizeof(type_info *));
+
     for (int i = 0; i < param_count; i++) {
-      global_table->items[index].data.param_types[i] = params[i].type;
+      if (params[i].full_type != NULL) {
+        slot->data.param_types[i] = params[i].full_type->kind;
+        slot->data.param_full_types[i] =
+            symtable_type_clone(params[i].full_type);
+      } else {
+        slot->data.param_types[i] = params[i].type;
+        slot->data.param_full_types[i] =
+            symtable_type_primitive(params[i].type);
+      }
     }
-  } else {
-    global_table->items[index].data.param_types = NULL;
   }
 
-  global_table->size++;
   return true;
 }
 
+bool symtable_insert_func(symtable_stack_t *stack, const char *name,
+                          data_type ret_type, int param_count, param *params) {
+  return symtable_insert_func_typed(stack, name, ret_type, NULL, param_count,
+                                    params);
+}
+
+/**
+ * ALGEBDT: inserts global alias for union of types (type Scalar = Int | String)
+ */
+bool symtable_insert_type_alias(symtable_stack_t *stack, const char *name,
+                                const type_info *aliased_type) {
+  if (stack == NULL || aliased_type == NULL) {
+    return false;
+  }
+
+  ht_item_t *slot = table_alloc_slot(stack->tables[0], name);
+  if (slot == NULL) {
+    return false;
+  }
+
+  slot->data.kind = SYMBOL_TYPE_ALIAS;
+  slot->data.type = aliased_type->kind;
+  slot->data.full_type = symtable_type_clone(aliased_type);
+  return true;
+}
+
+/**
+ * ALGEBDT: inserts global definition of data class (case class Point(x: Int, y:
+ * Int))
+ */
+bool symtable_insert_case_class(symtable_stack_t *stack, const char *name,
+                                int field_count, param *fields) {
+  if (stack == NULL) {
+    return false;
+  }
+
+  ht_item_t *slot = table_alloc_slot(stack->tables[0], name);
+  if (slot == NULL) {
+    return false;
+  }
+
+  slot->data.kind = SYMBOL_CASE_CLASS;
+  slot->data.type = TYPE_CASE_CLASS;
+
+  type_info *cls_type = ast_xcalloc(1, sizeof(type_info));
+  cls_type->kind = TYPE_CASE_CLASS;
+  cls_type->as.class_name = ast_xstrdup(name);
+  slot->data.full_type = cls_type;
+
+  slot->data.param_count = field_count;
+
+  if (field_count > 0 && fields != NULL) {
+    slot->data.param_names = ast_xcalloc((size_t)field_count, sizeof(char *));
+    slot->data.param_types =
+        ast_xcalloc((size_t)field_count, sizeof(data_type));
+    slot->data.param_full_types =
+        ast_xcalloc((size_t)field_count, sizeof(type_info *));
+
+    for (int i = 0; i < field_count; i++) {
+      slot->data.param_names[i] = ast_xstrdup(fields[i].name);
+      if (fields[i].full_type != NULL) {
+        slot->data.param_types[i] = fields[i].full_type->kind;
+        slot->data.param_full_types[i] =
+            symtable_type_clone(fields[i].full_type);
+      } else {
+        slot->data.param_types[i] = fields[i].type;
+        slot->data.param_full_types[i] =
+            symtable_type_primitive(fields[i].type);
+      }
+    }
+  }
+
+  return true;
+}
 /**
  * Searches for a variable in the symbol table stack from the most local scope
  * down to the global scope handles variable shadowing by returning the closest
  * active definition (local variables have bigger priority than global ones)
  */
 ht_item_t *symtable_lookup_var(symtable_stack_t *stack, const char *name) {
+  if (stack == NULL) {
+    return NULL;
+  }
   // Search the stack from top (loacl) to bottom (global)
   for (int i = stack->top; i >= 0; i--) {
     ht_item_t *item = table_find(stack->tables[i], name);
-    if (item != NULL) {
+    if (item != NULL &&
+        (item->data.kind == SYMBOL_VAR || item->data.kind == SYMBOL_VAL)) {
       return item; // item found
+    }
+    if (stack->tables[i]->is_isolated) {
+      break; // next local variables are outer functions -> not allowed
     }
   }
   return NULL; // not found
@@ -339,8 +555,53 @@ ht_item_t *symtable_lookup_var(symtable_stack_t *stack, const char *name) {
  * 0) it provides optimalization
  */
 ht_item_t *symtable_lookup_func(symtable_stack_t *stack, const char *name) {
-  // functions are only in the global scope (index 0)
-  return table_find(stack->tables[0], name);
+  if (stack == NULL) {
+    return NULL;
+  }
+  ht_item_t *item = table_find(stack->tables[0], name);
+  if (item != NULL && item->data.kind == SYMBOL_FUNC) {
+    return item;
+  }
+  return NULL;
+}
+
+ht_item_t *symtable_lookup_type(symtable_stack_t *stack, const char *name) {
+  if (stack == NULL) {
+    return NULL;
+  }
+  ht_item_t *item = table_find(stack->tables[0], name);
+  if (item != NULL && (item->data.kind == SYMBOL_TYPE_ALIAS ||
+                       item->data.kind == SYMBOL_CASE_CLASS)) {
+    return item;
+  }
+  return NULL;
+}
+
+ht_item_t *symtable_lookup_case_class(symtable_stack_t *stack,
+                                      const char *name) {
+  if (stack == NULL) {
+    return NULL;
+  }
+  ht_item_t *item = table_find(stack->tables[0], name);
+  if (item != NULL && item->data.kind == SYMBOL_CASE_CLASS) {
+    return item;
+  }
+  return NULL;
+}
+
+int symtable_case_class_field_index(const ht_item_t *cls_item,
+                                    const char *field_name) {
+  if (cls_item == NULL || cls_item->data.kind != SYMBOL_CASE_CLASS ||
+      field_name == NULL || cls_item->data.param_names == NULL) {
+    return -1;
+  }
+
+  for (int i = 0; i < cls_item->data.param_count; i++) {
+    if (strcmp(cls_item->data.param_names[i], field_name) == 0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 /**
@@ -350,9 +611,9 @@ void symtable_register_builtins(symtable_stack_t *stack) {
   if (stack == NULL)
     return;
 
-  param p1;
-  param p_substr[3];
-  param p_ord[2];
+  param p1 = {0};
+  param p_substr[3] = {{0}, {0}, {0}};
+  param p_ord[2] = {{0}, {0}};
 
   p1.name = "value";
   p1.type = TYPE_UNKNOWN;
@@ -363,6 +624,28 @@ void symtable_register_builtins(symtable_stack_t *stack) {
   symtable_insert_func(stack, "readInt", TYPE_INT, 0, NULL);
 
   symtable_insert_func(stack, "readDouble", TYPE_DOUBLE, 0, NULL);
+
+  // BOOLTHEN
+  symtable_insert_func(stack, "readBoolean", TYPE_BOOL, 0, NULL);
+
+  // ALGEBDT: readIntMaybe -> Int | Unit, readDoubleMaybe -> Double | Unit
+  type_info t_int = {.kind = TYPE_INT};
+  type_info t_double = {.kind = TYPE_DOUBLE};
+  type_info t_unit = {.kind = TYPE_UNIT};
+
+  type_info *int_maybe_members[2] = {&t_int, &t_unit};
+  type_info t_int_maybe = {
+      .kind = TYPE_UNION,
+      .as.union_t = {.members = int_maybe_members, .count = 2}};
+  symtable_insert_func_typed(stack, "readIntMaybe", TYPE_UNION, &t_int_maybe, 0,
+                             NULL);
+
+  type_info *double_maybe_members[2] = {&t_double, &t_unit};
+  type_info t_double_maybe = {
+      .kind = TYPE_UNION,
+      .as.union_t = {.members = double_maybe_members, .count = 2}};
+  symtable_insert_func_typed(stack, "readDoubleMaybe", TYPE_UNION,
+                             &t_double_maybe, 0, NULL);
 
   p1.name = "value";
   p1.type = TYPE_UNKNOWN;
