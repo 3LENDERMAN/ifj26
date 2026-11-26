@@ -7,9 +7,12 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
+#include <stdbool.h>
+
 void codegen_int_const(long long value);
 void codegen_float_const(double value);
 void codegen_string_const(const char *value);
+void codegen_bool_const(bool value);
 void codegen_var(const char *name, int id);
 int codegen_new_label(void);
 

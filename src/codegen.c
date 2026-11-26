@@ -3,6 +3,11 @@
  * Author: Oliver Truchlý (xtrucho00)
  * Date: 11.10.2026
  **/
+/*
+ * Whole file refactored by AI (Claude Code), prompt: 
+ * "Please make me short unified comments for all functions in this file, describing what they do in single line.
+ * keep the comments short and concise. In format function_name - description"
+*/
 
 #include "codegen.h"
 #include <stdio.h>
@@ -27,6 +32,11 @@ void codegen_string_const(const char *value) {
     else
       putchar(c);
   }
+}
+
+// codegen_bool_const - bool constant
+void codegen_bool_const(bool value) {
+  printf("bool@%s", value ? "true" : "false");
 }
 
 // codegen_var - local variable
