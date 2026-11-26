@@ -703,6 +703,9 @@ Token *get_token(FILE *file) {
         throw_error(LEXER_ERROR, "Block comment missing end sequence (EOF)");
       } else if (c == '*') {
         state = STATE_BLOCK_COMMENT_STAR;
+      } else if (c == '\n') {
+        block_has_newline = true;
+        state = STATE_BLOCK_COMMENT;
       } else {
         state = STATE_BLOCK_COMMENT;
       }
@@ -812,6 +815,11 @@ Token *get_token(FILE *file) {
           dstring_append_char(&attribute_str, '.');
           dstring_append_char(&attribute_str, (char)next_c);
           state = STATE_NUM_DECIMAL;
+        } else if (next_c == 'e' || next_c == 'E' || next_c == 'd' ||
+                   next_c == 'D') {
+          // 1.e5, 1.E+2, 1.d -> INVALID decimal num (no digit after dot)
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Malformed float literal after decimal point");
         } else if (isalpha(next_c) || next_c == '_') {
           // toString -> returns 5 and appends '.' to queue
           ungetc(next_c, file);
@@ -836,6 +844,9 @@ Token *get_token(FILE *file) {
               "Number starting with zero cannot be followed by underscore");
         }
         state = STATE_NUM_WHOLE_USC;
+      } else if (isalpha(c)) {
+        dstring_free(&attribute_str);
+        throw_error(LEXER_ERROR, "Invalid suffix in number literal"); 
       } else { // next token
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -850,7 +861,7 @@ Token *get_token(FILE *file) {
         throw_error(LEXER_ERROR, "Wrong character after decimal point");
       }
       break;
-    case STATE_NUM_DECIMAL: // second char in decimal part after dot
+    case STATE_NUM_DECIMAL: // decimal part after dot
       if (isdigit(c)) {
         dstring_append_char(&attribute_str, c);
       } else if (c == 'e' || c == 'E') {
@@ -860,6 +871,24 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_D;
       } else if (c == '_') {
         state = STATE_NUM_DEC_USC;
+      } else if (c == '.') {
+        int next_c = fgetc(file);
+        if (next_c == 'e' || next_c == 'E' || next_c == 'd' || next_c == 'D' ||
+            isdigit(next_c)) {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Malformed float literal");
+        } else if (isalpha(next_c) || next_c == '_') {
+          // VALMEM: 1.5.floor, 1.5.toInt
+          ungetc(next_c, file);
+          enqueue_token(create_token(TOKEN_DOT, NULL));
+          return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+        } else {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Wrong character after decimal point");
+        }
+      } else if (isalpha(c)) {
+        dstring_free(&attribute_str);
+        throw_error(LEXER_ERROR, "Invalid suffix in number literal");
       } else {
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -896,6 +925,24 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_D;
       } else if (c == '_') {
         state = STATE_NUM_EXP_USC;
+      } else if (c == '.') {
+        int next_c = fgetc(file);
+        if (next_c == 'e' || next_c == 'E' || next_c == 'd' || next_c == 'D' ||
+            isdigit(next_c)) {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Malformed float literal");
+        } else if (isalpha(next_c) || next_c == '_') {
+          // VALMEM: 1e5.toInt
+          ungetc(next_c, file);
+          enqueue_token(create_token(TOKEN_DOT, NULL));
+          return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+        } else {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Wrong character after decimal point");
+        }
+      } else if (isalpha(c)) {
+        dstring_free(&attribute_str);
+        throw_error(LEXER_ERROR, "Invalid suffix in number literal");
       } else {
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
@@ -903,9 +950,28 @@ Token *get_token(FILE *file) {
       break;
 
     case STATE_NUM_D:
-      // Suffix - always end of number
-      ungetc(c, file);
-      return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      if (c == '.') {
+        int next_c = fgetc(file);
+        if (next_c == 'e' || next_c == 'E' || next_c == 'd' || next_c == 'D' ||
+            isdigit(next_c)) {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Malformed float literal");
+        } else if (isalpha(next_c) || next_c == '_') {
+          // VALMEM: 5d.toInt
+          ungetc(next_c, file);
+          enqueue_token(create_token(TOKEN_DOT, NULL));
+          return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+        } else {
+          dstring_free(&attribute_str);
+          throw_error(LEXER_ERROR, "Wrong character after decimal point");
+        }
+      } else if (isalnum(c) || c == '_') {
+        dstring_free(&attribute_str);
+        throw_error(LEXER_ERROR, "Invalid character after double suffix");
+      } else {
+        ungetc(c, file);
+        return create_token(TOKEN_NUM_LITERAL, &attribute_str);
+      }
       break;
 
     case STATE_NUM_WHOLE_USC:
