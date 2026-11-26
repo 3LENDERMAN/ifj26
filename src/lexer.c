@@ -819,7 +819,8 @@ Token *get_token(FILE *file) {
                    next_c == 'D') {
           // 1.e5, 1.E+2, 1.d -> INVALID decimal num (no digit after dot)
           dstring_free(&attribute_str);
-          throw_error(LEXER_ERROR, "Malformed float literal after decimal point");
+          throw_error(LEXER_ERROR,
+                      "Malformed float literal after decimal point");
         } else if (isalpha(next_c) || next_c == '_') {
           // toString -> returns 5 and appends '.' to queue
           ungetc(next_c, file);
@@ -846,7 +847,7 @@ Token *get_token(FILE *file) {
         state = STATE_NUM_WHOLE_USC;
       } else if (isalpha(c)) {
         dstring_free(&attribute_str);
-        throw_error(LEXER_ERROR, "Invalid suffix in number literal"); 
+        throw_error(LEXER_ERROR, "Invalid suffix in number literal");
       } else { // next token
         ungetc(c, file);
         return create_token(TOKEN_NUM_LITERAL, &attribute_str);
