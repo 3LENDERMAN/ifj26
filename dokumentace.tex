@@ -1,0 +1,678 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[czech, shorthands=off]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\setlist[itemize]{label=-, topsep=4pt, itemsep=4pt, parsep=2pt}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, automata, shapes.geometric}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{RGB}{24, 78, 119}
+\definecolor{softfill}{RGB}{240, 246, 251}
+\definecolor{supportfill}{RGB}{246, 248, 250}
+\definecolor{capbg}{RGB}{242, 243, 245}
+\definecolor{errfill}{RGB}{253, 242, 242}
+\definecolor{errborder}{RGB}{166, 44, 43}
+\definecolor{amberfill}{RGB}{254, 243, 199}
+\definecolor{amberborder}{RGB}{175, 110, 10}
+\definecolor{greenfill}{RGB}{223, 245, 227}
+\definecolor{greenborder}{RGB}{34, 116, 62}
+\definecolor{purpfill}{RGB}{238, 228, 252}
+\definecolor{purpborder}{RGB}{109, 40, 168}
+\definecolor{numfill}{RGB}{224, 240, 252}
+
+\DeclareCaptionFormat{boxedfig}{%
+  \begingroup
+  \setlength{\fboxsep}{0pt}%
+  \setlength{\tabcolsep}{8pt}%
+  \renewcommand{\arraystretch}{1.15}%
+  \colorbox{capbg}{%
+    \begin{tabular}{!{\color{black}\vrule width 1.5pt}>{\raggedright\arraybackslash\small}p{\dimexpr\textwidth-17.5pt\relax}}
+      \rule{0pt}{11pt}#1#2#3\rule[-5pt]{0pt}{0pt}
+    \end{tabular}%
+  }%
+  \endgroup
+}
+\captionsetup[figure]{format=boxedfig, labelfont=bf, textfont=normalfont, singlelinecheck=false}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{10pt}
+\linespread{1.06}
+\emergencystretch=1.5em
+
+\begin{document}
+
+
+% TITULNÍ STRANA
+% ============================================================================
+\begin{titlepage}
+  \pagenumbering{gobble}
+  \vspace*{0.4cm}
+
+  {\normalsize\bfseries VYSOKÉ UČENÍ TECHNICKÉ V BRNĚ \par}
+  {\normalsize Fakulta informačních technologií \par}
+
+  \vspace{1.5cm}
+
+  {\small\bfseries FORMÁLNÍ JAZYKY A PŘEKLADAČE \par}
+  \vspace{0.2cm}
+  {\fontsize{26}{32}\selectfont\bfseries Dokumentace projektu IFJ26 \par}
+  \vspace{0.3cm}
+  {\Large Překladač jazyka IFJ26 do mezikódu \texttt{IFJcode26} \par}
+
+  \vspace{1.2cm}
+
+  {\large\bfseries Členové týmu \par}
+  \vspace{0.25cm}
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabularx}{\textwidth}{@{}X l l r@{}}
+    \toprule
+    \textbf{Jméno a příjmení} & \textbf{VUT login} & \textbf{Osobní číslo} & \textbf{Podíl bodů} \\
+    \midrule
+    \textbf{Jakub Holub} & \texttt{xholubj00} & 281841 & 25\,\% \\
+    Vít Kutěj & \texttt{xkutejv00} & 282018 & 25\,\% \\
+    David Pokorák & \texttt{xpokord00} & 281696 & 25\,\% \\
+    Oliver Truchlý & \texttt{xtrucho00} & 282721 & 25\,\% \\
+    \bottomrule
+  \end{tabularx}
+
+  \vspace{1.2cm}
+
+  {\large\bfseries Základní informace o implementaci\par}
+  \vspace{0.25cm}
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabularx}{\textwidth}{@{}>{\bfseries}l X@{}}
+    Zvolená varianta: & \texttt{TRP-izp} (tabulka symbolů jako hashovací tabulka s otevřeným adresováním / implicitním zřetězením) \\
+    Rozdělení bodů: & Rovnoměrné (25\,\% / 25\,\% / 25\,\% / 25\,\%) \\
+    Implementovaná rozšíření: & \texttt{FUNEXP}, \texttt{BOOLTHEN}, \texttt{CONTROL}, \texttt{VALMEM}, \texttt{ALGEBDT}, \texttt{INTERPOLATEDS}, \texttt{LAMBDAS}, \texttt{LISTS} \\
+    Git repozitář: & \texttt{https://github.com/3LENDERMAN/ifj26.git} \\
+  \end{tabularx}
+
+  \vfill
+  {\normalsize Brno, listopad 2026 \par}
+\end{titlepage}
+
+\pagenumbering{arabic}
+\setcounter{tocdepth}{2}
+\tableofcontents
+\newpage
+
+% ============================================================================
+% 1. ROZDĚLENÍ PRÁCE, SPOLUPRÁCE A TESTOVÁNÍ
+% ============================================================================
+\section{Rozdělení práce, spolupráce a testování}
+
+\textbf{Rozdělení práce mezi členy týmu}:
+\begin{itemize}
+  \item \textbf{Jakub Holub (\texttt{xholubj00}, vedoucí týmu):} Lexikální analyzátor (\texttt{lexer.c/.h}), dynamický řetězec (\texttt{dstring.c/.h}), tabulka symbolů (\texttt{symtable.c/.h}), zpracování chyb a úklid paměti (\texttt{error.c/.h}), hlavní modul (\texttt{main.c}), \texttt{Makefile}, integrační testy a technická dokumentace.
+  \item \textbf{Vít Kutěj (\texttt{xkutejv00}):} Proud tokenů (\texttt{token\_stream.c/.h}), syntaktický analyzátor s rekurzivním sestupem (\texttt{parser.c/.h}) a sémantický analyzátor (\texttt{semantic.c/.h}).
+ \item \textbf{David Pokorák (\texttt{xpokord00}):} Abstraktní syntaktický strom (\texttt{ast.c/.h}), precedenční syntaktický analyzátor výrazů (\texttt{expr\_parser.c/.h}), generátor mezikódu (\texttt{generator.c/.h}) a automatizace CI/CD v GitHub Actions.
+  \item \textbf{Oliver Truchlý (\texttt{xtrucho00}):} Pomocná emise kódu (\texttt{codegen.c/.h}) a generátor vestavěných funkcí (\texttt{builtins.c/.h}).
+\end{itemize}
+
+\textbf{Způsob spolupráce, testování a styl formátování kódu:}
+\begin{itemize}
+  \item \textbf{Plánování a harmonogram:} Před zahájením implementace proběhla úvodní týmová schůzka, na které jsme si rozdělili jednotlivé moduly, stanovili základní pravidla spolupráce a navrhli harmonogram s časovou rezervou necelých dvou týdnů před finálním termínem odevzdání. V průběhu vývoje bylo nutné termíny o týden posunout a finální implementaci rozšíření jsme dokončovali až v posledním týdnu.
+  \item \textbf{Spolupráce, kontrola kódu a PR:} Byl využit verzovací systém git na platformě GitHub, komunikace převážně na Discordu a při osobních setkáních na fakultě. Každý modul vznikal na samostatné větvi s atomickými commity v konvenčním formátu; změny byly před začleněním do hlavní větve kontrolovány a schvalovány ostatními členy týmu formou pull requestů. 
+  \item \textbf{Testování:} Použity byly integrační testy překládané naším překladačem, spouštěné v oficiálním interpretu \texttt{ic26int-linux-x86\_64} a porovnávané nástrojem \texttt{diff} oproti referenčnímu překladu jazykem Scala~3 (s knihovnou \texttt{ifj26.scala}). Práce s pamětí byla ověřována nástrojem \texttt{valgrind -{}-leak-check=full}, načež bylo využito vlastního příkazu \texttt{make valgrind} v rámci automatizačního skriptu \texttt{Makefile}.
+  \item \textbf{Formátování kódu:} Kód odpovídá standardu C11, překládá se s příznaky \texttt{-Wall -Wextra -Werror} a využívá anglické identifikátory a komentáře. Jednotný styl formátování (odsazování 2 mezerami dle standardu \textbf{LLVM}) zajišťuje nástroj \texttt{clang-format} spouštěný automaticky přes cíl \texttt{make format} v \texttt{Makefile} (\texttt{clang-format -i -{}-style=LLVM}).
+\end{itemize}
+
+% ============================================================================
+% 2. ARCHITEKTURA ŘEŠENÍ A DATOVÉ TOKY
+% ============================================================================
+\newpage
+\section{Architektura řešení a datové toky}
+
+Překladač řídí hlavní modul \texttt{main.c}, který sekvenčně zavolá jednotlivé moduly (viz obrázek~\ref{fig:architektura}). Vstupní zdrojový kód (\texttt{FILE *}) čte lexikální analyzátor po znacích (\texttt{fgetc}) za podpory \texttt{dyn\_string\_t} a vytváří tokeny (\texttt{Token *}), které vyrovnává kruhový buffer \texttt{TokenStream}. Syntaktická analýza (\texttt{parser} a \texttt{expr\_parser}) z proudu tokenů sestavuje abstraktní syntaktický strom (\texttt{program *}). Sémantický analyzátor nad AST ověřuje typy a rozsahy pomocí zásobníku hashovacích tabulek \texttt{symtable\_stack\_t} (varianta \texttt{TRP-izp}, rozptylovací funkce \texttt{djb2}) a doplňuje typové informace \texttt{type\_info}. Nakonec generátor kódu ve spolupráci s \texttt{codegen} a \texttt{builtins} vypisuje cílový kód \texttt{IFJcode26} na \texttt{stdout}. Modul \texttt{error} zajišťuje napříč všemi fázemi jednotné chybové ukončení (\texttt{throw\_error}) a centrální uvolnění registrované paměti (\texttt{cleanup\_garbage}).
+
+\vfill
+\subsection{Blokové schéma architektury překladače (Obrázek~\ref{fig:architektura})}
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    box/.style={draw=accent, thick, fill=softfill, rounded corners=3pt, minimum width=3.5cm, minimum height=1.35cm, align=center, font=\small},
+    sup/.style={draw=black!60, thick, fill=supportfill, rounded corners=3pt, minimum width=3.5cm, minimum height=1.1cm, align=center, font=\small},
+    io/.style={draw=black!70, dashed, thick, fill=white, rounded corners=3pt, minimum width=2.9cm, minimum height=1.2cm, align=center, font=\small},
+    errbox/.style={draw=errborder, thick, fill=errfill, rounded corners=3pt, minimum width=20.6cm, minimum height=1.25cm, align=center, font=\small},
+    arr/.style={->, >=Stealth, thick, draw=black!80},
+    biarr/.style={<->, >=Stealth, thick, draw=black!70},
+    darr/.style={->, >=Stealth, dashed, draw=errborder!85},
+    lbl/.style={font=\scriptsize, align=center}
+  ]
+    % Řada 0 - podpůrné moduly nahoře
+    \node[sup] (dstr) at (5.4, 3.1)  {\textbf{Dynamický řetězec}\\ \texttt{dstring.c/.h}};
+    \node[sup] (main) at (11.2, 3.1) {\textbf{Řízení překladu}\\ \texttt{main.c}};
+    \node[sup] (ast)  at (18.2, 3.1) {\textbf{Struktury AST}\\ \texttt{ast.c/.h}};
+
+    % Řada 1 - přední část
+    \node[io]  (in)     at (0.0, 0.0)  {Zdrojový kód\\ \texttt{FILE *} (\texttt{stdin})};
+    \node[box] (lexer)  at (5.4, 0.0)  {\textbf{Lexikální analyzátor}\\ \texttt{lexer.c/.h}};
+    \node[box] (ts)     at (11.2, 0.0) {\textbf{Proud tokenů}\\ \texttt{token\_stream.c/.h}};
+    \node[box] (parser) at (18.2, 0.0) {\textbf{Syntaktická analýza}\\ \texttt{parser.c/.h}\\ \texttt{expr\_parser.c/.h}};
+
+    % Řada 2 - zadní část
+    \node[io]  (out) at (0.0, -3.4)  {Cílový kód\\ \texttt{IFJcode26} (\texttt{stdout})};
+    \node[box] (gen) at (11.2, -3.4) {\textbf{Generátor mezikódu}\\ \texttt{generator.c/.h}};
+    \node[box] (sem) at (18.2, -3.4) {\textbf{Sémantická analýza}\\ \texttt{semantic.c/.h}};
+
+    % Řada 3 - podpůrné moduly dole
+    \node[sup, minimum width=4.8cm] (code) at (11.2, -6.2) {\textbf{Emise kódu a vestavěné fce}\\ \texttt{codegen.c/.h}, \texttt{builtins.c/.h}};
+    \node[sup] (sym)  at (18.2, -6.2) {\textbf{Tabulka symbolů}\\ \texttt{symtable.c/.h}};
+
+    % Řada 4 - průřezový modul chyb a GC
+    \node[errbox] (err) at (9.4, -8.8) {\textbf{Zpracování chyb a správa paměti (\texttt{error.c/.h})}\\ \texttt{throw\_error(Error\_code)}, \texttt{garbage\_register()}, \texttt{cleanup\_garbage()} $\longrightarrow$ \texttt{stderr} / \texttt{exit(code)}};
+
+    % Hlavní datová roura
+    \draw[arr] (in) -- node[above, lbl]{\texttt{fgetc}} (lexer);
+    \draw[arr] (lexer) -- node[above, lbl]{\texttt{Token *}} (ts);
+    \draw[arr] (ts) -- node[above, lbl]{\texttt{TokenStream *}} node[below, lbl]{\texttt{ts\_peek / ts\_next}} (parser);
+    \draw[arr] (parser) -- node[right, lbl]{AST\\ \texttt{program *}} (sem);
+    \draw[arr] (sem) -- node[above, lbl]{typovaný AST} node[below, lbl]{\texttt{program *}} (gen);
+    \draw[arr] (gen) -- node[above, pos=0.35, lbl]{\texttt{IFJcode26}} (out);
+
+    % Podpůrné vazby
+    \draw[biarr] (dstr) -- node[right, lbl]{\texttt{dyn\_string\_t}} (lexer);
+    \draw[arr, dashed, draw=black!55] (main) -- node[right, lbl]{řídí pořadí fází\\ a úklid paměti} (ts);
+    \draw[biarr] (ast) -- node[right, lbl]{\texttt{program, stmt,}\\ \texttt{expr, type\_info}} (parser);
+    \draw[biarr] (sem) -- node[right, lbl]{\texttt{symtable\_stack\_t}\\ \texttt{ht\_item\_t *}} (sym);
+    \draw[arr] (gen) -- node[right, lbl]{pomocné funkce\\ a builtiny} (code);
+    \draw[arr] (code.west) -| node[pos=0.32, below, lbl]{\texttt{IFJcode26} (vestavěné funkce)} (out.south);
+
+    % Průřezové napojení na error.c (čistě svislé bez kolizí)
+    \draw[darr] (lexer.south) -- (5.4, -8.17);
+    \draw[darr] (code.south)  -- (11.2, -8.17);
+    \draw[darr] (sym.south)   -- (18.2, -8.17);
+  \end{tikzpicture}%
+  }
+  \caption{Blokové schéma architektury překladače a datových toků mezi moduly.}
+  \label{fig:architektura}
+\end{figure}
+
+% ============================================================================
+% 3. PŘEHLED MODULŮ PŘEKLADAČE
+% ============================================================================
+\vfill
+\newpage
+\section{Přehled modulů překladače}
+
+\begin{table}[H]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\textwidth}{l X}
+    \toprule
+    \textbf{Modul} & \textbf{Popis funkce modulu} \\
+    \midrule
+    \texttt{main.c} & Vstupní bod překladače, který otevírá vstupní proud, lineárně spouští jednotlivé fáze překladu a na konci zajišťuje kompletní uvolnění paměti. \\
+    \texttt{lexer.c/.h} & Deterministický konečný automat doplněný o správu odsazení a interpolace, který převádí vstupní znaky na strukturované tokeny \texttt{Token}. \\
+    \texttt{dstring.c/.h} & Dynamicky rostoucí nulou ukončený řetězec (\texttt{dyn\_string\_t}) využívaný lexikálním analyzátorem pro ukládání lexémů libovolné délky. \\
+    \texttt{token\_stream.c/.h} & Mezivrstva nad lexikálním analyzátorem využívající kruhový buffer o velikosti~8 pro efektivní dopředný pohled (\textit{lookahead}) v čase $\mathcal{O}(1)$. \\
+  \texttt{parser.c/.h} & Syntaktický analyzátor s rekurzivním sestupem zpracovávající strukturu programu, definice typů a funkcí, řídicí konstrukce (včetně hlaviček a rozsahů cyklu \texttt{for}), lambdy i \texttt{match} do AST \texttt{program}. \\
+    \texttt{expr\_parser.c/.h} & Precedenční syntaktický analyzátor výrazů zpracovávající operátory (včetně \texttt{++}), postfixové členy \texttt{.member}, interpolaci, uzávorkované rozsahy \texttt{(a to b)} a volání \texttt{List(...)} / \texttt{List.range(...)}. \\
+    \texttt{ast.c/.h} & Definice uzlů AST (\texttt{program}, \texttt{type\_def}, \texttt{func\_def}, \texttt{stmt}, \texttt{expr}, \texttt{match\_case}, \texttt{type\_info}), bezpečné alokační funkce, makro \texttt{APPEND} a rekurzivní uvolňování stromu. \\
+\texttt{semantic.c/.h} & Vícefázový sémantický analyzátor (registrace typů a hlaviček funkcí, analýza těl s vyžádanou inferencí návratového typu) ověřující deklarace, složené typy (\texttt{type\_info}), cyklické aliasy, izolaci lambd a zákaz \texttt{return} v lambdě, mutabilitu, nulový krok rozsahu, pokrytí větví \texttt{match} (členů unie či \texttt{\_}) a implicitní konverze. \\
+    \texttt{symtable.c/.h} & Zásobník hashovacích tabulek s otevřeným adresováním (\texttt{djb2}, lineární zkoušení, práh realokace 75\,\%) realizující rozsahy platnosti, izolaci lambd a registraci vestavěných funkcí. \\
+    \texttt{generator.c/.h} & Dvouprůchodový generátor mezikódu překládající typovaný AST (včetně cyklů \texttt{for}, datových tříd, \texttt{match}, interpolace, lambd a seznamů) do zásobníkových instrukcí \texttt{IFJcode26}. \\
+    \texttt{codegen.c/.h} & Nízkoúrovňový modul pro formátování konstant, escape sekvencí řetězců, lokálních proměnných, volání funkcí, správu rámců a generování unikátních návěští. \\
+    \texttt{builtins.c/.h} & Modul generující kompletní implementace všech vestavěných funkcí jazyka IFJ26 (včetně operací nad seznamy a funkcí \texttt{read*Maybe}) přímo v \texttt{IFJcode26}. \\
+    \texttt{error.c/.h} & Centralizované hlášení chyb s návratovými kódy \texttt{Error\_code} a jednoduchý garbage collector (\texttt{gb\_collector\_arr}) pro bezpečné uvolnění paměti při chybě i konci překladu. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Stručný popis všech modulů překladače.}
+  \label{tab:moduly}
+\end{table}
+% ============================================================================
+% 4. DIAGRAM AUTOMATU LEXIKÁLNÍHO ANALYZÁTORU
+% ============================================================================
+\newpage
+\section{Diagram konečného automatu lexikálního analyzátoru}
+
+Deterministický konečný automat funkce \texttt{get\_token} (obrázek~\ref{fig:dka}) je barevně rozdělen podle kategorií tokenů (žlutá: operátory a oddělovače, šedá: start a komentáře, zelená: identifikátory a řetězce, fialová: interpolace, modrá: čísla). Dvojitý rámeček označuje koncový stav: při načtení znaku bez definovaného přechodu (mimo nedovolenou příponu čísla) se znak vrátí funkcí \texttt{ungetc} a emituje se příslušný token; v ostatních stavech vede nedefinovaný znak na lexikální chybu (\texttt{exit~1}).
+
+\begin{figure}[H]
+  \centering
+  \makebox[\textwidth][c]{%
+  \resizebox{1.12\textwidth}{!}{%
+  \begin{tikzpicture}[
+    ->, >={Stealth[length=3mm, width=2.2mm]}, line width=0.95pt,
+    base/.style={draw, line width=0.95pt, align=center, font=\small, inner sep=3pt},
+    startnode/.style={base, ellipse, draw=black!75, fill=black!8, minimum width=3.6cm, minimum height=1.25cm, font=\normalsize\bfseries},
+    op/.style={base, circle, draw=amberborder, fill=amberfill, minimum size=1.18cm},
+    opacc/.style={op, double, double distance=1.4pt},
+    opbox/.style={base, rounded corners=6pt, draw=amberborder, fill=amberfill, double, double distance=1.4pt, inner sep=4.5pt},
+    com/.style={base, ellipse, draw=black!65, fill=black!7, minimum width=1.85cm, minimum height=0.95cm},
+    comacc/.style={com, double, double distance=1.4pt},
+    str/.style={base, ellipse, draw=greenborder, fill=greenfill, minimum width=1.85cm, minimum height=0.95cm},
+    stracc/.style={str, double, double distance=1.4pt},
+    num/.style={base, ellipse, draw=accent, fill=numfill, minimum width=1.85cm, minimum height=0.95cm},
+    numacc/.style={num, double, double distance=1.4pt},
+    prp/.style={base, rounded corners=6pt, draw=purpborder, fill=purpfill, double, double distance=1.4pt, inner sep=4.5pt},
+    lbl/.style={font=\normalsize, align=center, inner sep=2pt}
+  ]
+
+    % === POČÁTEČNÍ STAV ===
+    \node[startnode] (S0) at (0.0, 2.0) {STATE\_START};
+    \draw[line width=1.5pt] (-3.1, 2.0) -- (S0.west);
+    \draw (S0) edge[out=-56, in=-88, min distance=2.1cm, looseness=6] node[below, yshift=-2pt, lbl]{\texttt{' '} $\lor$ \texttt{\textbackslash{}r} $\lor$ \texttt{\textbackslash{}t}} (S0);
+
+    % === HORNÍ OBLOUK: OPERÁTORY A JEDNOZNAKOVÉ TOKENY ===
+    \node[op]    (SAND)  at (-6.6, 3.6) {\texttt{\&}};
+    \node[opacc] (FAND)  at (-9.5, 4.4) {\texttt{\&\&}};
+
+    \node[opacc] (SOR)   at (-5.4, 5.1) {\texttt{|}};
+    \node[opacc] (FOR)   at (-8.1, 6.6) {\texttt{||}};
+
+    \node[opacc] (SPLUS) at (-3.8, 6.0) {\texttt{+}};
+    \node[opacc] (FPLUS) at (-5.3, 8.2) {\texttt{++}};
+
+    \node[opacc] (SNOT)  at (-1.9, 6.3) {\texttt{!}};
+    \node[opacc] (FNOT)  at (-2.8, 8.7) {\texttt{!=}};
+
+    \node[opacc] (SEQ)   at (0.0, 6.4)  {\texttt{=}};
+    \node[opacc] (FEQ)   at (-0.9, 8.8) {\texttt{==}};
+    \node[opacc] (FARR)  at (0.9, 8.8)  {\texttt{=>}};
+
+    \node[opacc] (SGT)   at (1.9, 6.3)  {\texttt{>}};
+    \node[opacc] (FGE)   at (2.8, 8.7)  {\texttt{>=}};
+
+    \node[opacc] (SLT)   at (3.9, 5.8)  {\texttt{<}};
+    \node[opacc] (FLE)   at (4.7, 8.3)  {\texttt{<=}};
+    \node[opacc] (FLARR) at (6.6, 7.2)  {\texttt{<-}};
+
+    \node[opacc] (SLP)   at (5.9, 4.6)  {\texttt{(}};
+    \node[opacc] (FUNIT) at (8.9, 5.5)  {\texttt{()}};
+
+    \node[opbox] (FONE)  at (8.8, 2.7)  {\texttt{@ : ; * - ,}\\ \texttt{[ ] ) \textbackslash{}n EOF}};
+    \node[prp]   (FBRC)  at (9.3, 0.7)  {\texttt{\{, \}} (v \texttt{\$\{...\}})};
+
+    \draw (S0) -- node[above, pos=0.64, lbl]{\texttt{\&}} (SAND);
+    \draw (SAND) -- node[above, lbl]{\texttt{\&}} (FAND);
+
+    \draw (S0) -- node[above left, pos=0.62, lbl]{\texttt{|}} (SOR);
+    \draw (SOR) -- node[below left, lbl]{\texttt{|}} (FOR);
+
+    \draw (S0) -- node[left, pos=0.66, lbl]{\texttt{+}} (SPLUS);
+    \draw (SPLUS) -- node[left, lbl]{\texttt{+}} (FPLUS);
+
+    \draw (S0) -- node[left, pos=0.68, lbl]{\texttt{!}} (SNOT);
+    \draw (SNOT) -- node[left, lbl]{\texttt{=}} (FNOT);
+
+    \draw (S0) -- node[right, pos=0.65, lbl]{\texttt{=}} (SEQ);
+    \draw (SEQ) -- node[left, lbl]{\texttt{=}} (FEQ);
+    \draw (SEQ) -- node[right, lbl]{\texttt{>}} (FARR);
+
+    \draw (S0) -- node[right, pos=0.68, lbl]{\texttt{>}} (SGT);
+    \draw (SGT) -- node[right, lbl]{\texttt{=}} (FGE);
+
+    \draw (S0) -- node[right, pos=0.65, lbl]{\texttt{<}} (SLT);
+    \draw (SLT) -- node[left, lbl]{\texttt{=}} (FLE);
+    \draw (SLT) -- node[below right, lbl]{\texttt{-}} (FLARR);
+
+    \draw (S0) -- node[below right, pos=0.65, lbl]{\texttt{(}} (SLP);
+    \draw (SLP) -- node[above, lbl]{\texttt{)}} (FUNIT);
+
+    \draw (S0) -- node[above, pos=0.55, lbl]{1-znak.\ token} (FONE);
+    \draw (S0) -- node[above, pos=0.60, lbl]{\texttt{\{} $\lor$ \texttt{\}}} (FBRC);
+
+    % === LEVÁ ČÁST (ŠEDÁ): DĚLENÍ A KOMENTÁŘE ===
+    \node[comacc] (SSL)   at (-4.7, 0.7)  {\texttt{SLASH} (\texttt{/})};
+    \node[com]    (SLCOM) at (-8.3, 1.7)  {\texttt{LINE\_COM}};
+    \node[comacc] (FNL)   at (-11.4, 0.2) {\texttt{NL}};
+    \node[com]    (SBCOM) at (-5.8, -2.2) {\texttt{BLOCK\_COM}};
+    \node[com]    (SBSLH) at (-9.6, -2.2) {\texttt{B\_SLASH}};
+    \node[com]    (SBSTR) at (-5.8, -5.2) {\texttt{B\_STAR}};
+    \node[com]    (SEEOL) at (-11.4, -5.2){\texttt{EXPECT\_EOL}};
+
+    \draw (S0) -- node[above, pos=0.55, lbl]{\texttt{/}} (SSL);
+    \draw (SSL) -- node[above, lbl]{\texttt{/}} (SLCOM);
+    \draw (SLCOM) edge[out=68, in=115, min distance=1.4cm, looseness=6] node[above, lbl]{$\neq$ (\texttt{\textbackslash{}n} $\lor$ \texttt{EOF})} (SLCOM);
+    \draw (SLCOM) -- node[above left, lbl]{\texttt{\textbackslash{}n}} (FNL);
+
+    \draw (SSL) -- node[right, lbl]{\texttt{*}} (SBCOM);
+    \draw (SBCOM) edge[out=86, in=120, min distance=1.9cm, looseness=5.5] node[above, lbl]{$\neq$ (\texttt{*} $\lor$ \texttt{/})} (SBCOM);
+
+    \draw (SBCOM) edge[bend left=22] node[below, lbl]{\texttt{/}} (SBSLH);
+    \draw (SBSLH) edge[bend left=22] node[above, lbl]{\texttt{*} (lvl++)\\ $\lor$ jiné} (SBCOM);
+    \draw (SBSLH) edge[out=235, in=280, min distance=1.5cm, looseness=6] node[below, lbl]{\texttt{/}} (SBSLH);
+
+    \draw (SBCOM) edge[bend right=22] node[left, lbl]{\texttt{*}} (SBSTR);
+    \draw (SBSTR) edge[bend right=22] node[right, lbl]{jiné $\lor$\\ \texttt{/} (lvl>0)} (SBCOM);
+    \draw (SBSTR) edge[out=225, in=270, min distance=1.5cm, looseness=6] node[below, lbl]{\texttt{*}} (SBSTR);
+
+    \draw (SBSTR.north east) .. controls (-3.0, -2.8) and (-2.5, 0.0) .. node[left, pos=0.68, lbl]{\texttt{/} (lvl=0;\\ 1 ř.)} (S0.202);
+    \draw (SBSTR) -- node[above, lbl]{\texttt{/} (lvl=0; \textbackslash{}n)} (SEEOL);
+    \draw (SEEOL) edge[out=245, in=295, min distance=1.7cm, looseness=6] node[below, lbl]{\texttt{ws}} (SEEOL);
+    \draw (SEEOL) -- node[left, lbl]{\texttt{\textbackslash{}n}} (FNL);
+
+    % === PRAVÁ ČÁST (ZELENÁ A FIALOVÁ): IDENTIFIKÁTORY, INTERPOLACE A ŘETĚZCE ===
+    \node[stracc] (SID)   at (4.8, -1.8)  {\texttt{IDENTIFIER}\\ (\texttt{ID / KW / \_})};
+    \node[prp]    (FINT)  at (11.4, -1.8) {\texttt{INTERP}\\ \texttt{s"..."} / \texttt{s"""..."""}};
+
+    \draw (S0) -- node[above right, pos=0.46, lbl]{\texttt{[a-zA-Z\_]}} (SID);
+    \draw (SID) edge[out=65, in=112, min distance=1.5cm, looseness=6] node[above, lbl]{\texttt{[a-zA-Z0-9\_]}} (SID);
+    \draw (SID) -- node[above, lbl]{\texttt{"} (pro \texttt{s})} (FINT);
+
+    \node[str]    (SQ1)   at (4.6, -5.0)  {\texttt{STR\_START}};
+    \node[str]    (SSTR)  at (8.8, -5.0)  {\texttt{STATE\_STR}};
+    \node[stracc] (FSTR)  at (12.4, -5.0) {\texttt{STR\_LIT}};
+    \node[str]    (SESC)  at (8.8, -8.4)  {\texttt{STR\_ESCAPE}};
+
+    \node[stracc] (SQ2)   at (4.6, -8.6)  {\texttt{STR\_TWO\_QTS}\\ (\texttt{""})};
+    \node[str]    (SMUL)  at (4.6, -12.4) {\texttt{STR\_MULTI}};
+    \node[str]    (SMQ1)  at (8.6, -12.4) {\texttt{MULTI\_Q1}};
+    \node[str]    (SMQ2)  at (12.2, -12.4){\texttt{MULTI\_Q2}};
+    \node[stracc] (FMST)  at (12.2, -15.8){\texttt{STR\_LIT}};
+
+    \draw (S0) -- node[right, pos=0.58, lbl]{\texttt{"}} (SQ1);
+    \draw (SQ1) -- node[above, lbl]{$\neq$ (\texttt{"} $\lor$ \texttt{\textbackslash{}}\\ $\lor$ \texttt{\textbackslash{}n})} (SSTR);
+    \draw (SSTR) edge[out=68, in=112, min distance=1.5cm, looseness=6] node[above, lbl]{$\neq$ (\texttt{"} $\lor$ \texttt{\textbackslash{}} $\lor$ \texttt{\textbackslash{}n})} (SSTR);
+    \draw (SSTR) -- node[above, lbl]{\texttt{"}} (FSTR);
+
+    \draw (SQ1) -- node[below left, pos=0.52, lbl]{\texttt{\textbackslash{}}} (SESC);
+    \draw (SSTR) edge[bend right=18] node[left, lbl]{\texttt{\textbackslash{}}} (SESC);
+    \draw (SESC) edge[bend right=18] node[right, lbl]{\texttt{"} $\lor$ \texttt{n} $\lor$ \texttt{r}\\ $\lor$ \texttt{t} $\lor$ \texttt{\textbackslash{}}} (SSTR);
+
+    \draw (SQ1) -- node[left, lbl]{\texttt{"}} (SQ2);
+    \draw (SQ2) -- node[left, lbl]{\texttt{"}} (SMUL);
+    \draw (SMUL) edge[out=20, in=66, min distance=1.8cm, looseness=6] node[above right, lbl]{$\neq$ \texttt{"}} (SMUL);
+    \draw (SMUL) -- node[above, lbl]{\texttt{"}} (SMQ1);
+    \draw (SMQ1) edge[bend left=28] node[below, lbl]{$\neq$ \texttt{"}} (SMUL);
+    \draw (SMQ1) -- node[above, lbl]{\texttt{"}} (SMQ2);
+    \draw (SMQ2) .. controls (10.3, -15.4) and (6.7, -15.4) .. node[below, lbl]{$\neq$ \texttt{"}} (SMUL);
+    \draw (SMQ2) -- node[right, lbl]{\texttt{"}} (FMST);
+
+    % === SPODNÍ ČÁST (MODRÁ): ČÍSELNÉ LITERÁLY ===
+    \node[numacc] (SDOT)  at (-4.4, -7.4) {\texttt{DOT\_OR\_DBL}\\ (\texttt{.})};
+    \node[numacc] (SWHO)  at (-1.0, -7.4) {\texttt{NUM\_WHOLE}};
+    \node[num]    (SWUSC) at (2.3, -7.4)  {\texttt{WHOLE\_USC}};
+
+    \node[numacc] (SDEC)  at (-6.4, -10.4){\texttt{NUM\_DECIMAL}};
+    \node[num]    (SDUSC) at (-10.4, -10.4){\texttt{DEC\_USC}};
+
+    \node[num]    (SE)    at (-2.6, -10.6){\texttt{NUM\_E}};
+    \node[num]    (SESGN) at (-6.4, -13.4){\texttt{EXP\_SIGN}};
+    \node[numacc] (SEXP)  at (-2.6, -13.4){\texttt{NUM\_EXP}};
+    \node[num]    (SEUSC) at (0.9, -13.4) {\texttt{EXP\_USC}};
+    \node[numacc] (SD)    at (-2.6, -16.0){\texttt{NUM\_D}};
+
+    \draw (S0) -- node[left, pos=0.68, lbl]{\texttt{.}} (SDOT);
+    \draw (S0) -- node[right, pos=0.66, lbl]{\texttt{[0-9]}} (SWHO);
+
+    \draw (SWHO) edge[out=25, in=68, min distance=1.8cm, looseness=6] node[above right, lbl]{\texttt{[0-9]}*} (SWHO);
+    \draw (SWHO) edge[bend left=22] node[above, lbl]{\texttt{\_}*} (SWUSC);
+    \draw (SWUSC) edge[bend left=22] node[below, lbl]{\texttt{[0-9]}} (SWHO);
+
+    \draw (SDOT) -- node[left, lbl]{\texttt{[0-9]}} (SDEC);
+    \draw (SWHO) -- node[above left, pos=0.45, lbl]{\texttt{.[0-9]}} (SDEC);
+
+    \draw (SDEC) edge[out=112, in=152, min distance=1.6cm, looseness=6] node[above left, lbl]{\texttt{[0-9]}} (SDEC);
+    \draw (SDEC) edge[bend left=22] node[below, lbl]{\texttt{\_}} (SDUSC);
+    \draw (SDUSC) edge[bend left=22] node[above, lbl]{\texttt{[0-9]}} (SDEC);
+
+    \draw (SDEC) -- node[above, lbl]{\texttt{e} $\lor$ \texttt{E}} (SE);
+    \draw (SWHO) -- node[right, pos=0.52, lbl]{\texttt{e} $\lor$ \texttt{E}} (SE);
+
+    \draw (SE) -- node[above left, pos=0.46, lbl]{\texttt{+} $\lor$ \texttt{-}} (SESGN);
+    \draw (SESGN) -- node[below, lbl]{\texttt{[0-9]}} (SEXP);
+    \draw (SE) -- node[left, lbl]{\texttt{[0-9]}} (SEXP);
+
+    \draw (SEXP) edge[out=25, in=68, min distance=1.6cm, looseness=6] node[above right, lbl]{\texttt{[0-9]}} (SEXP);
+    \draw (SEXP) edge[bend left=22] node[above, lbl]{\texttt{\_}} (SEUSC);
+    \draw (SEUSC) edge[bend left=22] node[below, lbl]{\texttt{[0-9]}} (SEXP);
+
+    \draw (SEXP) -- node[right, lbl]{\texttt{d} $\lor$ \texttt{D}} (SD);
+    \draw (SDEC.south) .. controls (-9.4, -13.4) and (-8.0, -16.0) .. node[left, pos=0.52, lbl]{\texttt{d} $\lor$ \texttt{D}} (SD.west);
+    \draw (SWHO.south east) .. controls (3.8, -10.6) and (4.8, -16.2) .. node[below right, pos=0.72, lbl]{\texttt{d} $\lor$ \texttt{D}} (SD.east);
+  \end{tikzpicture}%
+  }%
+  }
+  \caption{Kompletní diagram DKA lexikálního analyzátoru (\texttt{lexer.c}). Hvězdička (\texttt{*}) u \texttt{NUM\_WHOLE} značí, že při úvodní nule (\texttt{left\_side\_zero}) nejsou povoleny další číslice ani podtržítko \texttt{\_}.}
+  \label{fig:dka}
+\end{figure}
+
+\subsection*{Odchylky od standardního modelu konečného automatu}
+\begin{itemize}[topsep=3pt, itemsep=3pt]
+  \item \textbf{Odsazení a uzavírání bloků (off-side rule):} Zásobník \texttt{indent\_stack} (max.\ 50 úrovní) s příznakem \texttt{is\_line\_start}, čítačem mezer \texttt{space\_count} a čítačem \texttt{pending\_indents} vyhodnocuje odsazení na začátku logických řádků a emituje \texttt{TOKEN\_INDENT\_START}/\texttt{END} (včetně vícenásobného odskoku). Tabulátor na začátku řádku a nezarovnaný odskok hlásí lexikální chybu, prázdné řádky i samostatné komentáře \texttt{//} jsou ignorovány a při \texttt{EOF} automat postupně uzavře všechny zbylé otevřené bloky.
+  \item \textbf{Potlačování konců řádků a sloučení \texttt{()}:} Čítače \texttt{paren\_level} a \texttt{bracket\_level} společně s příznakem výrazu v interpolaci (\texttt{in\_interp\_expr}) potlačují generování \texttt{TOKEN\_NEWLINE} uvnitř závorek \texttt{()}, \texttt{[]} a \texttt{\$\{...\}}. Dvojici bezprostředně sousedících závorek \texttt{()} lexer navíc dopředným čtením spojuje do jediného tokenu \texttt{TOKEN\_UNIT\_LITERAL}.
+  \item \textbf{Vnořené blokové komentáře:} Čítač \texttt{comment\_level} umožňuje libovolné vnořování komentářů \texttt{/* ... */} (neregulární konstrukce). Příznak \texttt{block\_has\_newline} rozlišuje přechod při návratu na úroveň~0: víceřádkový komentář přechází do \texttt{STATE\_EXPECT\_EOL} (další token na témže řádku je zakázán), zatímco jednořádkový se vrací přímo do \texttt{STATE\_START}.
+  \item \textbf{Fronta zpožděných tokenů a rozlišení \texttt{VALMEM}:} Fronta \texttt{pending\_queue} (kapacita 8 tokenů) umožňuje v jednom průchodu automatem vrátit více tokenů najednou. Využívá se především pro oddělení tečky za číselným literálem u rozšíření \texttt{VALMEM} (např.\ \texttt{5.toString}, \texttt{1.5.floor}, \texttt{1e5.toInt}, \texttt{5d.toInt}), přičemž neplatné tvary (\texttt{1.e5}, \texttt{1.5.3}, \texttt{123abc}, \texttt{1.5d2}) jsou ihned zamítnuty lexikální chybou.
+  \item \textbf{Interpolované řetězce (\texttt{INTERPOLATEDS}):} Kontext interpolace řídí zásobník \texttt{interp\_stack} (max.\ 16 vnořených úrovní) a pomocná funkce \texttt{lex\_interp\_chunk}, která přepíná mezi textovými úseky a režimem výrazu \texttt{\$\{...\}} se sledováním hloubky složených závorek \texttt{brace\_depth} (mimo interpolaci jsou znaky \texttt{\{} a \texttt{\}} lexikální chybou). Zkrácený zápis \texttt{\$id} se přes \texttt{pending\_queue} rozbaluje na trojici tokenů (samostatné \texttt{\$\_} je zakázáno) a sekvence \texttt{\$\$} escapuje znak \texttt{\$}.
+  \item \textbf{Klasifikace klíčových slov a normalizace lexémů:} Klíčová slova i zástupný znak \texttt{\_} se místo rozvětvení stavů DKA rozlišují až po načtení identifikátoru funkcí \texttt{resolve\_identifier}. Příznak \texttt{left\_side\_zero} zakazuje úvodní nuly u čísel (\texttt{05}, \texttt{0\_1}) bez zdvojování stavů. Již během skenování se lexémy normalizují v \texttt{attribute\_str}: oddělovače \texttt{\_} se z čísel vypouštějí, zápis \texttt{.5} se doplňuje na \texttt{0.5}, celočíselný literál s příponou \texttt{d}/\texttt{D} dostává \texttt{.0} a escape sekvence (\texttt{\textbackslash"}, \texttt{\textbackslash n}, \texttt{\textbackslash r}, \texttt{\textbackslash t}, \texttt{\textbackslash\textbackslash}) se dekódují přímo do výsledného řetězce.
+\end{itemize}
+% ============================================================================
+% 5. LL GRAMATIKA, LL TABULKA A PRECEDENČNÍ TABULKA
+% ============================================================================
+\newpage
+\section{LL gramatika, LL tabulka a precedenční tabulka}
+
+\subsection{LL gramatika a LL tabulka}
+Neterminály jsou zapsány v lomených závorkách, terminály neproporcionálním písmem (\texttt{IND} = \texttt{TOKEN\_INDENT\_START}, \texttt{DED} = \texttt{TOKEN\_INDENT\_END}, \texttt{NL} = \texttt{TOKEN\_NEWLINE}, \texttt{T} = \{\texttt{Int}, \texttt{Double}, \texttt{String}, \texttt{Unit}, \texttt{Boolean}\}). Kontextová slova \texttt{to}, \texttt{until}, \texttt{by} a názvy \texttt{ifj26}, \texttt{main} jsou lexikálně identifikátory; $\langle\text{Expr}\rangle$ deleguje výraz na precedenční analyzátor. Prázdné řádky přeskakuje \texttt{skip\_blank\_lines}; po hodnotě ukončené blokem či výrazem \texttt{match} přechází $\langle\text{End}\rangle$ přes \texttt{check\_value\_end} přímo na $\varepsilon$. V \texttt{match} značí $\langle\text{PatArgs}\rangle$ argumenty konstruktoru (\texttt{()} či čárkou oddělené \texttt{id}/\texttt{\_} v závorkách) a $\langle\text{Lit}\rangle$ literál (včetně volitelného unárního \texttt{-} před číslem).
+
+\vspace{-4pt}
+\begingroup
+\linespread{0.96}\selectfont
+\footnotesize
+\renewcommand{\arraystretch}{0.95}
+\begin{tabular}{@{}r l@{}}
+  (1)     & $\langle\text{Prog}\rangle \to \texttt{import}\;\texttt{ifj26}\;\texttt{.}\;\texttt{*}\;\langle\text{End}\rangle\;\langle\text{Tops}\rangle\;\texttt{EOF}$ \\
+  (2--4)  & $\langle\text{Tops}\rangle \to \langle\text{TypeDef}\rangle\;\langle\text{Tops}\rangle \mid \langle\text{Func}\rangle\;\langle\text{Tops}\rangle \mid \varepsilon$ \\
+  (5--6)  & $\langle\text{TypeDef}\rangle \to \texttt{type}\;\texttt{id}\;\texttt{=}\;\langle\text{Type}\rangle\;\langle\text{End}\rangle \mid \texttt{case}\;\texttt{class}\;\texttt{id}\;\langle\text{Params}\rangle\;\langle\text{End}\rangle$ \\
+  (7)     & $\langle\text{Func}\rangle \to \langle\text{Main}\rangle\;\texttt{def}\;\texttt{id}\;\langle\text{Params}\rangle\;\langle\text{TypeOpt}\rangle\;\texttt{=}\;\langle\text{FBody}\rangle$ \\
+  (8--9)  & $\langle\text{Main}\rangle \to \texttt{@}\;\texttt{main} \mid \varepsilon$ \\
+  (10--11)& $\langle\text{Params}\rangle \to \texttt{()} \mid \texttt{(}\;\langle\text{PList}\rangle\;\texttt{)}$ \\
+  (12--13)& $\langle\text{PList}\rangle \to \texttt{id}\;\texttt{:}\;\langle\text{Type}\rangle\;\langle\text{PTail}\rangle \mid \varepsilon$ \\
+  (14--15)& $\langle\text{PTail}\rangle \to \texttt{,}\;\langle\text{PList}\rangle \mid \varepsilon$ \\
+  (16--17)& $\langle\text{TypeOpt}\rangle \to \texttt{:}\;\langle\text{Type}\rangle \mid \varepsilon$ \\
+  (18)    & $\langle\text{Type}\rangle \to \langle\text{TypeP}\rangle\;\langle\text{Union}\rangle$ \\
+  (19--20)& $\langle\text{Union}\rangle \to \texttt{|}\;\langle\text{TypeP}\rangle\;\langle\text{Union}\rangle \mid \varepsilon$ \\
+  (21--25)& $\langle\text{TypeP}\rangle \to \texttt{T} \mid \texttt{id} \mid \texttt{List}\;\texttt{[}\;\langle\text{Type}\rangle\;\texttt{]} \mid \texttt{()}\;\texttt{=>}\;\langle\text{Type}\rangle \mid \texttt{(}\;\langle\text{TList}\rangle\;\texttt{)}\;\texttt{=>}\;\langle\text{Type}\rangle$ \\
+  (26--27)& $\langle\text{TList}\rangle \to \langle\text{Type}\rangle\;\langle\text{TTail}\rangle \mid \varepsilon$ \\
+  (28--29)& $\langle\text{TTail}\rangle \to \texttt{,}\;\langle\text{TList}\rangle \mid \varepsilon$ \\
+  (30--31)& $\langle\text{FBody}\rangle \to \texttt{NL}\;\langle\text{Block}\rangle \mid \langle\text{Value}\rangle\;\langle\text{End}\rangle$ \\
+  (32)    & $\langle\text{Block}\rangle \to \texttt{IND}\;\langle\text{Stmt}\rangle\;\langle\text{Stmts}\rangle\;\texttt{DED}$ \\
+  (33--34)& $\langle\text{Stmts}\rangle \to \langle\text{Stmt}\rangle\;\langle\text{Stmts}\rangle \mid \varepsilon$ \\
+  (35)    & $\langle\text{Stmt}\rangle \to \texttt{val}\;\texttt{id}\;\langle\text{TypeOpt}\rangle\;\texttt{=}\;\langle\text{Value}\rangle\;\langle\text{End}\rangle$ \\
+  (36)    & $\langle\text{Stmt}\rangle \to \texttt{var}\;\texttt{id}\;\langle\text{TypeOpt}\rangle\;\texttt{=}\;\langle\text{Value}\rangle\;\langle\text{End}\rangle$ \\
+  (37--40)& $\langle\text{Stmt}\rangle \to \langle\text{IfStmt}\rangle \mid \langle\text{While}\rangle \mid \langle\text{For}\rangle \mid \texttt{return}\;\langle\text{RetVal}\rangle\;\langle\text{End}\rangle$ \\
+  (41--42)& $\langle\text{Stmt}\rangle \to \texttt{id}\;\texttt{=}\;\langle\text{Value}\rangle\;\langle\text{End}\rangle \mid \langle\text{Value}\rangle\;\langle\text{End}\rangle$ \\
+  (43--44)& $\langle\text{RetVal}\rangle \to \langle\text{Value}\rangle \mid \varepsilon$ \\
+  (45--46)& $\langle\text{Body}\rangle \to \texttt{NL}\;\langle\text{Block}\rangle \mid \langle\text{Stmt}\rangle$ \\
+  (47)    & $\langle\text{IfStmt}\rangle \to \texttt{if}\;\langle\text{Expr}\rangle\;\texttt{then}\;\langle\text{Body}\rangle\;\langle\text{ElseOpt}\rangle$ \\
+  (48--49)& $\langle\text{ElseOpt}\rangle \to \texttt{else}\;\langle\text{ElseTail}\rangle \mid \varepsilon$ \\
+  (50--51)& $\langle\text{ElseTail}\rangle \to \langle\text{IfStmt}\rangle \mid \langle\text{Body}\rangle$ \\
+  (52)    & $\langle\text{While}\rangle \to \texttt{while}\;\langle\text{Expr}\rangle\;\texttt{do}\;\langle\text{Body}\rangle$ \\
+  (53)    & $\langle\text{For}\rangle \to \texttt{for}\;\langle\text{ForHead}\rangle\;\texttt{do}\;\langle\text{Body}\rangle$ \\
+  (54)    & $\langle\text{ForHead}\rangle \to \texttt{id}\;\texttt{<-}\;\langle\text{ForSrc}\rangle\;\langle\text{Guards}\rangle$ \\
+  (55)    & $\langle\text{ForHead}\rangle \to \texttt{NL}\;\texttt{IND}\;\texttt{id}\;\texttt{<-}\;\langle\text{ForSrc}\rangle\;\langle\text{End}\rangle\;\langle\text{GuardsNL}\rangle\;\texttt{DED}$ \\
+  (56)    & $\langle\text{ForSrc}\rangle \to \langle\text{Expr}\rangle\;\langle\text{RangeOpt}\rangle$ \\
+  (57--59)& $\langle\text{RangeOpt}\rangle \to \texttt{to}\;\langle\text{Expr}\rangle\;\langle\text{StepOpt}\rangle \mid \texttt{until}\;\langle\text{Expr}\rangle\;\langle\text{StepOpt}\rangle \mid \varepsilon$ \\
+  (60--61)& $\langle\text{StepOpt}\rangle \to \texttt{by}\;\langle\text{Expr}\rangle \mid \varepsilon$ \\
+  (62--63)& $\langle\text{Guards}\rangle \to \texttt{if}\;\langle\text{Expr}\rangle\;\langle\text{Guards}\rangle \mid \varepsilon$ \\
+  (64--65)& $\langle\text{GuardsNL}\rangle \to \texttt{if}\;\langle\text{Expr}\rangle\;\langle\text{End}\rangle\;\langle\text{GuardsNL}\rangle \mid \varepsilon$ \\
+  (66--69)& $\langle\text{Value}\rangle \to \texttt{NL}\;\texttt{IND}\;\langle\text{Value}\rangle\;\langle\text{End}\rangle\;\texttt{DED} \mid \langle\text{IfExpr}\rangle \mid \langle\text{Lambda}\rangle \mid \langle\text{Expr}\rangle\;\langle\text{MatchT}\rangle$ \\
+  (70)    & $\langle\text{IfExpr}\rangle \to \texttt{if}\;\langle\text{Expr}\rangle\;\texttt{then}\;\langle\text{Branch}\rangle\;\texttt{else}\;\langle\text{ElseEx}\rangle$ \\
+  (71--72)& $\langle\text{ElseEx}\rangle \to \langle\text{IfExpr}\rangle \mid \langle\text{Branch}\rangle$ \\
+  (73--74)& $\langle\text{Branch}\rangle \to \texttt{NL}\;\langle\text{Block}\rangle \mid \langle\text{Value}\rangle$ \\
+  (75)    & $\langle\text{Lambda}\rangle \to \langle\text{Params}\rangle\;\texttt{=>}\;\langle\text{Branch}\rangle$ \\
+  (76--77)& $\langle\text{MatchT}\rangle \to \texttt{match}\;\texttt{NL}\;\langle\text{MCases}\rangle\;\langle\text{MatchT}\rangle \mid \varepsilon$ \\
+  (78--79)& $\langle\text{MCases}\rangle \to \texttt{IND}\;\langle\text{Case}\rangle\;\langle\text{Cases}\rangle\;\texttt{DED} \mid \langle\text{Case}\rangle\;\langle\text{Cases}\rangle$ \\
+  (80--81)& $\langle\text{Cases}\rangle \to \langle\text{Case}\rangle\;\langle\text{Cases}\rangle \mid \varepsilon$ \\
+  (82)    & $\langle\text{Case}\rangle \to \texttt{case}\;\langle\text{Pat}\rangle\;\langle\text{GuardOpt}\rangle\;\texttt{=>}\;\langle\text{Body}\rangle$ \\
+  (83--86)& $\langle\text{Pat}\rangle \to \texttt{\_} \mid \texttt{id}\;\texttt{:}\;\langle\text{TypeP}\rangle \mid \texttt{id}\;\langle\text{PatArgs}\rangle \mid \langle\text{Lit}\rangle$ \\
+  (87--88)& $\langle\text{GuardOpt}\rangle \to \texttt{if}\;\langle\text{Expr}\rangle \mid \varepsilon$ \\
+  (89--91)& $\langle\text{End}\rangle \to \texttt{;} \mid \texttt{NL} \mid \varepsilon$ \\
+\end{tabular}
+\endgroup
+
+\newpage
+LL tabulka je rozdělena do tabulek~\ref{tab:ll1}--\ref{tab:ll3} (\texttt{val\_s} = počáteční terminály hodnot/výrazů, \texttt{ex\_0} = počáteční symboly výrazu mimo \texttt{if}, \texttt{()}, \texttt{(}, \texttt{id}, \texttt{end\_f} = \{\texttt{;}, \texttt{NL}, \texttt{DED}, \texttt{EOF}, \texttt{else}, \texttt{,}, \texttt{)}\}; prázdná buňka znamená syntaktickou chybu). Hvězdička (*) značí rozlišení dopředným pohledem \texttt{TokenStream} nad rámec LL(1): přiřazení vs. výraz (41/42, LL(2)), \texttt{else} za prázdnými řádky (48/49), lambda \texttt{(id:} či \texttt{() =>} vs. výraz (68/69, LL(3)) a vzor \texttt{id: Typ} vs. \texttt{Class(...)} (84/85, LL(2)).
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.22}
+  \setlength{\tabcolsep}{3.2pt}
+  \begin{tabular}{lccccccccccccccc}
+    \toprule
+    \textbf{Neterminál} & \texttt{import} & \texttt{type} & \texttt{case} & \texttt{@} & \texttt{def} & \texttt{id} & \texttt{List} & \texttt{()} & \texttt{(} & \texttt{)} & \texttt{,} & \texttt{:} & \texttt{|} & \texttt{T} & \texttt{EOF} \\
+    \midrule
+    $\langle\text{Prog}\rangle$    & 1 & & & & & & & & & & & & & & \\
+    $\langle\text{Tops}\rangle$    & & 2 & 2 & 3 & 3 & & & & & & & & & & 4 \\
+    $\langle\text{TypeDef}\rangle$ & & 5 & 6 & & & & & & & & & & & & \\
+    $\langle\text{Func}\rangle$    & & & & 7 & 7 & & & & & & & & & & \\
+    $\langle\text{Main}\rangle$    & & & & 8 & 9 & & & & & & & & & & \\
+    $\langle\text{Params}\rangle$  & & & & & & & & 10 & 11 & & & & & & \\
+    $\langle\text{PList}\rangle$   & & & & & & 12 & & & & 13 & & & & & \\
+    $\langle\text{PTail}\rangle$   & & & & & & & & & & 15 & 14 & & & & \\
+    $\langle\text{TypeOpt}\rangle$ & & & & & & & & & & & & 16 & & & \textit{(=: 17)} \\
+    $\langle\text{Type}\rangle$    & & & & & & 18 & 18 & 18 & 18 & & & & & 18 & \\
+    $\langle\text{Union}\rangle$   & & & & & & & & & & 20 & 20 & & 19 & & 20\textsuperscript{+} \\
+    $\langle\text{TypeP}\rangle$   & & & & & & 22 & 23 & 24 & 25 & & & & & 21 & \\
+    $\langle\text{TList}\rangle$   & & & & & & 26 & 26 & 26 & 26 & 27 & & & & 26 & \\
+    $\langle\text{TTail}\rangle$   & & & & & & & & & & 29 & 28 & & & & \\
+    \bottomrule
+  \end{tabular}
+  \caption{LL tabulka -- část 1: program, definice a typy (\textsuperscript{+}pravidlo~20 platí i pro \texttt{=}, \texttt{]}, \texttt{;}, \texttt{NL}, \texttt{DED}; pro $\langle\text{FBody}\rangle$ platí 30 pro \texttt{NL} a 31 pro \texttt{val\_s}) pro $\langle\text{FBody}\rangle$ platí 30 pro \texttt{NL} a 31 pro \texttt{val\_s}, \texttt{if}, \texttt{id}).}
+  \label{tab:ll1}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.22}
+  \setlength{\tabcolsep}{2.6pt}
+  \begin{tabular}{lcccccccccccccc}
+    \toprule
+    \textbf{Neterminál} & \texttt{val} & \texttt{var} & \texttt{if} & \texttt{else} & \texttt{while} & \texttt{for} & \texttt{return} & \texttt{id} & \texttt{val\_s} & \texttt{IND} & \texttt{DED} & \texttt{NL} & \texttt{;} & \texttt{EOF} \\
+    \midrule
+    $\langle\text{Block}\rangle$    & & & & & & & & & & 32 & & & & \\
+    $\langle\text{Stmts}\rangle$    & 33 & 33 & 33 & & 33 & 33 & 33 & 33 & 33 & & 34 & & & 34 \\
+    $\langle\text{Stmt}\rangle$     & 35 & 36 & 37 & & 38 & 39 & 40 & 41/42* & 42 & & & & & \\
+    $\langle\text{RetVal}\rangle$   & & & 43 & & & & & 43 & 43 & & 44 & 44 & 44 & 44 \\
+    $\langle\text{Body}\rangle$     & 46 & 46 & 46 & & 46 & 46 & 46 & 46 & 46 & & & 45 & & \\
+    $\langle\text{IfStmt}\rangle$   & & & 47 & & & & & & & & & & & \\
+    $\langle\text{ElseOpt}\rangle$  & 49 & 49 & 49 & 48 & 49 & 49 & 49 & 49 & 49 & & 49 & 48/49* & & 49 \\
+    $\langle\text{ElseTail}\rangle$ & 51 & 51 & 50 & & 51 & 51 & 51 & 51 & 51 & & & 51 & & \\
+    $\langle\text{While}\rangle$    & & & & & 52 & & & & & & & & & \\
+    $\langle\text{For}\rangle$      & & & & & & 53 & & & & & & & & \\
+    $\langle\text{ForHead}\rangle$  & & & & & & & & 54 & & & & 55 & & \\
+    $\langle\text{End}\rangle$      & & & & 91 & & & & & & & 91 & 90 & 89 & 91 \\
+    \bottomrule
+  \end{tabular}
+  \caption{LL tabulka -- část 2: bloky, příkazy a řídicí konstrukce ($\langle\text{RangeOpt}\rangle$: 57 pro \texttt{to}, 58 pro \texttt{until}, jinak 59; $\langle\text{StepOpt}\rangle$: 60 pro \texttt{by}, jinak 61; $\langle\text{Guards}\rangle$/$\langle\text{GuardsNL}\rangle$: 62/64 pro \texttt{if}, 63/65 pro \texttt{do}/\texttt{DED}).}
+  \label{tab:ll2}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.22}
+  \setlength{\tabcolsep}{4.5pt}
+  \begin{tabular}{lccccccccccc}
+    \toprule
+    \textbf{Neterminál} & \texttt{NL} & \texttt{IND} & \texttt{if} & \texttt{()} & \texttt{(} & \texttt{id} & \texttt{ex\_0} & \texttt{match} & \texttt{case} & \texttt{\_} & \texttt{end\_f} \\
+    \midrule
+    $\langle\text{Value}\rangle$    & 66 & & 67 & 68/69* & 68/69* & 69 & 69 & & & & \\
+    $\langle\text{IfExpr}\rangle$   & & & 70 & & & & & & & & \\
+    $\langle\text{ElseEx}\rangle$   & 72 & & 71 & 72 & 72 & 72 & 72 & & & & \\
+    $\langle\text{Branch}\rangle$   & 73 & & 74 & 74 & 74 & 74 & 74 & & & & \\
+    $\langle\text{Lambda}\rangle$   & & & & 75 & 75 & & & & & & \\
+    $\langle\text{MatchT}\rangle$   & 77 & & & & & & & 76 & & & 77 \\
+    $\langle\text{MCases}\rangle$   & & 78 & & & & & & & 79 & & \\
+    $\langle\text{Cases}\rangle$    & 81 & & 81 & 81 & 81 & 81 & 81 & & 80 & & 81 \\
+    $\langle\text{Case}\rangle$     & & & & & & & & & 82 & & \\
+    $\langle\text{Pat}\rangle$      & & & & 86 & & 84/85* & 86 & & & 83 & \\
+    $\langle\text{GuardOpt}\rangle$ & & & 87 & & & & & & & & \textit{(=>: 88)} \\
+    \bottomrule
+  \end{tabular}
+  \caption{LL tabulka -- část 3: hodnotové konstrukce, anonymní funkce a výraz \texttt{match}.}
+  \label{tab:ll3}
+\end{table}
+
+\subsection{Precedenční tabulka a redukční pravidla}
+Analýzu výrazů v \texttt{expr\_parser.c} řídí tabulka~\ref{tab:prec} (\texttt{<} posun, \texttt{>} redukce, \texttt{=} shoda závorek, \texttt{\#} chyba, \texttt{A} přijetí). Kategorie: \texttt{U} (unární \texttt{-}, \texttt{!}), \texttt{MD} (\texttt{*}, \texttt{/}), \texttt{AS} (\texttt{+}, \texttt{-}, \texttt{++}), \texttt{REL} (\texttt{<}, \texttt{<=}, \texttt{>}, \texttt{>=}), \texttt{EQ} (\texttt{==}, \texttt{!=}), \texttt{AND} (\texttt{\&\&}), \texttt{OR} (\texttt{||}), \texttt{i} (literál, interpolace, identifikátor, volání včetně postfixu \texttt{.member}), \texttt{\$} (konec výrazu).
+
+\begin{table}[H]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.1}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lccccccccccc}
+    \toprule
+    \textbf{Zásobník $\backslash$ Vstup} & \texttt{U} & \texttt{MD} & \texttt{AS} & \texttt{REL} & \texttt{EQ} & \texttt{AND} & \texttt{OR} & \texttt{(} & \texttt{)} & \texttt{i} & \texttt{\$} \\
+    \midrule
+    \texttt{U}   & $<$ & $>$ & $>$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{MD}  & $<$ & $>$ & $>$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{AS}  & $<$ & $<$ & $>$ & $>$ & $>$ & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{REL} & $<$ & $<$ & $<$ & \#  & $>$ & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{EQ}  & $<$ & $<$ & $<$ & $<$ & \#  & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{AND} & $<$ & $<$ & $<$ & $<$ & $<$ & $>$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{OR}  & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $>$ & $<$ & $>$ & $<$ & $>$ \\
+    \texttt{(}   & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $=$ & $<$ & \#  \\
+    \texttt{)}   & \#  & $>$ & $>$ & $>$ & $>$ & $>$ & $>$ & \#  & $>$ & \#  & $>$ \\
+    \texttt{i}   & \#  & $>$ & $>$ & $>$ & $>$ & $>$ & $>$ & \#  & $>$ & \#  & $>$ \\
+    \texttt{\$}  & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & $<$ & \#  & $<$ & \textbf{A} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Precedenční tabulka výrazů podle implementace v \texttt{expr\_parser.c}.}
+  \label{tab:prec}
+\end{table}
+
+Redukční pravidla (\texttt{op} $\in \{\texttt{MD}, \texttt{AS}, \texttt{REL}, \texttt{EQ}, \texttt{AND}, \texttt{OR}\}$); postfixy \texttt{(E).member} a uzávorkované rozsahy \texttt{(from to/until to [by step])} se zpracovávají přímo nad zredukovaným neterminálem \texttt{PS\_E} v \texttt{expr\_parser.c} (rozsah v hlavičce cyklu \texttt{for} parsuje \texttt{parser.c}):
+\[
+  E \to \texttt{i} \qquad|\qquad E \to \texttt{(} E \texttt{)} \qquad|\qquad E \to \texttt{U}\; E \qquad|\qquad E \to E\; \texttt{op}\; E
+\]
+
+% ============================================================================
+% 6. BIBLIOGRAFICKÉ CITACE
+% ============================================================================
+\newpage
+\section{Bibliografické citace}
+\begin{enumerate}[topsep=4pt, itemsep=4pt]
+  \item BERNSTEIN, Daniel J. \textit{Hash Functions: djb2} [online]. York University, Department of Computer Science [cit. 2026-10-30]. Dostupné z: \texttt{http://www.cse.yorku.ca/\textasciitilde{}oz/hash.html}. (Použito jako \texttt{hash\_function} v \texttt{symtable.c}.)
+  \item MEDUNA, Alexander; KŘIVKA, Zbyněk; BÍDLO, Michal a kol. \textit{Formální jazyky a překladače (IFJ) -- studijní materiály a zadání projektu IFJ26}. Brno: Fakulta informačních technologií, Vysoké učení technické v Brně, 2026.
+  \item \textit{Scala 3 Documentation} [online]. École Polytechnique Fédérale de Lausanne (EPFL), 2026 [cit. 2026-11-20]. Dostupné z: \texttt{https://docs.scala-lang.org/scala3/}.
+\end{enumerate}
+% ============================================================================
+% 7. VYUŽITÍ PROSTŘEDKŮ AI
+% ============================================================================
+\section{Využití prostředků umělé inteligence (AI)}
+
+V projektu byly využity modely generativní umělé inteligence \textbf{Claude (Opus~5.5)} a \textbf{Google Gemini (3~Pro)} jako asistenční nástroj při:
+\begin{itemize}[topsep=2pt, itemsep=2pt]
+  \item podrobném vysvětlení algoritmů a ověřování okrajových případů specifikace jazyka IFJ26;
+  \item revizi kódu (\textit{code review}), vyhledávání potenciálních chyb či úniků paměti, návrhu jejich oprav a diagnostice výstupů nástroje \texttt{valgrind};
+  \item návrhu datových rozhraní mezi moduly a přípravě rozšiřujících integračních testů;
+  \item organizaci repozitáře Git (generování konvenčních zpráv commitů a popisů pull requestů) a plánování harmonogramu prací.
+\end{itemize}
+
+\textbf{Pracovní postup (workflow):} Při kontrole vybraného úseku kódu byl model dotazován konkrétním technickým promptem (dotazem), například:
+\begin{quote}
+  \small\itshape
+  ``Review this section for potential bugs, memory leaks, or other implementation issues. Explain each problem and suggest a fix.''
+\end{quote}
+Nahlášené nedostatky členové týmu manuálně prošli, odlišili reálné chyby od falešných hlášení (halucinací) a po týmové konzultaci jednotlivé části implementovali. Veškeré výsledné úpravy byly ověřeny proti referenčnímu interpretu \texttt{ic26int} a překladači Scala~3.
+
+
+\section{Další poznámky}
+\begin{itemize}
+  \item \textbf{Tvorba dokumentace:} Dokumentace byla vysázena v systému \LaTeX{} a schémata (architektura překladače i diagramy DKA) jsou vytvořena vektorově přímo v balíčku \texttt{TikZ}. Zdrojový soubor \texttt{.tex} je společně se zdrojovým kódem překladače verzován v systému Git.
+  \item \textbf{Technické limity implementace:} Lexikální analyzátor podporuje zanoření odsazení do maximální hloubky 50 úrovní (\texttt{indent\_stack}), kruhový buffer \texttt{TokenStream} poskytuje dopředný pohled až o 7 tokenů a interní pole pro centrální úklid paměti (\texttt{gb\_collector\_arr}) má fixní kapacitu 20\,000 záznamů.
+  \item \textbf{Záměrná omezení jazyka:} V souladu se specifikací rozšíření \texttt{LAMBDAS} anonymní funkce nepodporují uzávěry (přístup k lokálním proměnným nadřazené funkce je zakázán izolovaným rozsahem v tabulce symbolů) a uvnitř jejich těla není povolen příkaz \texttt{return}.
+  \item \textbf{Přenositelnost a spuštění:} Překladač využívá výhradně standardní knihovnu jazyka C11 bez externích závislostí. Po sestavení příkazem \texttt{make} čte zdrojový kód ze standardního vstupu \texttt{stdin} (případně ze souboru předaného jako argument) a výsledný mezikód \texttt{IFJcode26} vypisuje na \texttt{stdout}.
+\end{itemize}
+
+\end{document}
